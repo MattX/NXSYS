@@ -1,6 +1,7 @@
 // nxtrace -- headless driver for the original NXSYS core.
 //
-//   nxtrace [--settle MS] [--until MS] [--draw-at MS[,MS...] --draw-dir DIR] <file.trk | file.xdo>
+//   nxtrace [--settle MS] [--until MS] [--draw-at MS[,MS...]] [--tool-at MS,.. [--draft-relays NAME,..]... [--fullsig NO,..]]
+//           [--status-at MS,..] [--draw-dir DIR] <file.trk | file.xdo>
 //
 // Emits a deterministic relay trace on stdout (see NOTES.md for the format).
 // With --draw-at/--draw-dir it also repaints the whole panel at the given sim times and writes
@@ -17,6 +18,14 @@
 #include "demoapi.h"
 #include "timers.h"
 #include "nxgo.h"
+#include "typeid.h"
+#include "xtgtrack.h"
+#include "swkey.h"
+#include "trafficlever.h"
+#include "plight.h"
+#include "pswitch.h"
+#include "signal.h"
+#include "StatusReport.h"
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -44,6 +53,21 @@ void DrawRecorder_Begin(FILE* f);
 void DrawRecorder_End();
 extern bool REDISPLAYING;
 
+// ---- Phase 5 tool recordings (see NOTES.md) ----
+static std::vector<std::vector<std::string>> DraftPages;   // --draft-relays (repeatable): one page each
+static std::vector<long> ToolTimes;                       // --tool-at
+static std::vector<long> StatusTimes;                     // --status-at
+static std::vector<long> FullsigNos;                      // --fullsig
+static size_t NextTool = 0, NextStatus = 0;
+
+extern int HeadlessClientW, HeadlessClientH;
+HWND MakeSigWin(Signal* s, int x, int y);                 // fullsig.cpp
+void CallFSWinDisp(void* s, HDC dc, int lo);              // fullsig.cpp (NXSYSMac)
+int DrawRelayFromName(const char*);                       // ldgut.cpp
+int PlaceRelayDrawing();
+void RenderRelayPage(HDC);
+void ClearRelayGraphics();
+
 static std::vector<long> DrawTimes;
 static std::string DrawDir;
 static size_t NextDraw = 0;
@@ -52,7 +76,7 @@ static size_t NextDraw = 0;
 // Viewport: origin (0,0) (the Mac app never moves the WP origin; VIEW-ORIGIN is only a scroll
 // position), scale 1.0, extent = NXGO_ComputeTrueLayoutDimensions() (what MacAssertTrueLayoutDims
 // sizes the view to).
-static void Paint(long ms) {
+static void PaintPanel(long ms) {
     RECT lims = NXGO_ComputeTrueLayoutDimensions();
     int w = lims.right - lims.left, h = lims.bottom - lims.top;
     NXGO_SetViewportDims(w, h);   // recomputes visible set, as the Mac app does once per layout load
@@ -77,6 +101,108 @@ static void Paint(long ms) {
     DrawRecorder_End();
     fprintf(f, "END\n");
     fclose(f);
+}
+
+static std::string ToolPath(long ms, const std::string& tag, const char* ext) {
+    return DrawDir + "/" + Base + "@" + std::to_string(ms) + "." + tag + "." + ext;
+}
+
+// RelayDrafterView.mm drawRect: SelectObject(BLACK_PEN), SetTextColor(0), SetBkMode(TRANSPARENT), RenderRelayPage.
+// Each page is re-placed from scratch (ClearRelayGraphics, then the Mac's DrawRelayAPI sequence: DrawRelayFromName +
+// PlaceRelayDrawing); placement depends only on circuit structure, never on relay state.
+// The page occupies NCellW x NCellH cells of 80x32 (the Mac never calls DrawingSetPageSize): view 880x1664 is arbitrary.
+static const int DraftW = 880, DraftH = 1664;
+static void PaintDraft(long ms, size_t page) {
+    ClearRelayGraphics();
+    for (auto& name : DraftPages[page]) {
+        if (!DrawRelayFromName(name.c_str())) continue;
+        if (!PlaceRelayDrawing())
+            fprintf(stderr, "nxtrace: relay circuit %s too big for the page\n", name.c_str());
+    }
+    std::string path = ToolPath(ms, "draft" + std::to_string(page), "nxdraw");
+    FILE* f = fopen(path.c_str(), "wb");
+    if (!f) { fprintf(stderr, "nxtrace: cannot write %s\n", path.c_str()); return; }
+    fprintf(f, "# nxdraw 1 %s @%ld\n", Base.c_str(), ms);
+    fprintf(f, "VIEW 0 0 %d %d 1\n", DraftW, DraftH);
+    DrawRecorder_Begin(f);
+    HDC dc = GetDC(G_mainwindow);
+    SelectObject(dc, GetStockObject(BLACK_PEN));
+    SetTextColor(dc, 0x000000);
+    SetBkMode(dc, TRANSPARENT);
+    RenderRelayPage(dc);
+    ReleaseDC(G_mainwindow, dc);
+    DrawRecorder_End();
+    fprintf(f, "END\n");
+    fclose(f);
+    ClearRelayGraphics();
+}
+
+static Signal* FoundSignal;
+static long WantedSignal;
+static int SignalFinder(GraphicObject* g) {
+    Signal* s = static_cast<PanelSignal*>(g)->Sig;
+    if (s && (s->XlkgNo ? s->XlkgNo : s->StationNo) == WantedSignal) { FoundSignal = s; return 1; }
+    return 0;
+}
+
+// FullSignalView.mm drawRect (non-floating window): BLACK_PEN, text color 0, TRANSPARENT, Signal::WinDisp.
+// Window client area = SigWinWidth(60) x (10 + UnitHeight + 20) (MakeSigWin on the Mac).
+static void PaintFullsig(long ms, long no) {
+    WantedSignal = no; FoundSignal = NULL;
+    MapGraphicObjectsOfType(TypeId::SIGNAL, SignalFinder);
+    if (!FoundSignal) { fprintf(stderr, "nxtrace: no signal %ld\n", no); return; }
+    Signal* s = FoundSignal;
+    if (s->Window == NULL) s->Window = MakeSigWin(s, 0, 0);
+    HeadlessClientW = 60;
+    HeadlessClientH = 10 + s->UnitHeight() + 20;
+    std::string path = ToolPath(ms, "fullsig" + std::to_string(no), "nxdraw");
+    FILE* f = fopen(path.c_str(), "wb");
+    if (!f) { fprintf(stderr, "nxtrace: cannot write %s\n", path.c_str()); return; }
+    fprintf(f, "# nxdraw 1 %s @%ld\n", Base.c_str(), ms);
+    fprintf(f, "VIEW 0 0 %d %d 1\n", HeadlessClientW, HeadlessClientH);
+    DrawRecorder_Begin(f);
+    HDC dc = GetDC(G_mainwindow);
+    SelectObject(dc, GetStockObject(BLACK_PEN));
+    SetTextColor(dc, 0x000000);
+    SetBkMode(dc, TRANSPARENT);
+    CallFSWinDisp(s, dc, 0);
+    ReleaseDC(G_mainwindow, dc);
+    DrawRecorder_End();
+    fprintf(f, "END\n");
+    fclose(f);
+}
+
+static void ToolsAt(long ms) {   // all tool recordings due at `ms`
+    for (size_t i = 0; i < DraftPages.size(); i++) PaintDraft(ms, i);
+    for (long n : FullsigNos) PaintFullsig(ms, n);
+}
+
+static void StatusAt(long ms) {  // InterlockingFileStatus::Report(), as the File Info menu command shows it
+    InterlockingFileStatus ifs;
+    std::string path = DrawDir + "/" + Base + "@" + std::to_string(ms) + ".status";
+    FILE* f = fopen(path.c_str(), "wb");
+    if (!f) { fprintf(stderr, "nxtrace: cannot write %s\n", path.c_str()); return; }
+    std::string r = ifs.Report();
+    fwrite(r.data(), 1, r.size(), f);
+    fclose(f);
+}
+
+// A requested time may carry any of: panel repaint (--draw-at), tool pages (--tool-at), status report (--status-at).
+static std::vector<long> PanelTimes;
+static void Paint(long ms) {
+    if (std::find(PanelTimes.begin(), PanelTimes.end(), ms) != PanelTimes.end()) PaintPanel(ms);
+    if (std::find(ToolTimes.begin(), ToolTimes.end(), ms) != ToolTimes.end()) ToolsAt(ms);
+    if (std::find(StatusTimes.begin(), StatusTimes.end(), ms) != StatusTimes.end()) StatusAt(ms);
+}
+
+static void ParseTimes(const std::string& l, std::vector<long>& out) {
+    size_t pos = 0;
+    while (pos <= l.size()) {
+        size_t c = l.find(',', pos);
+        if (c == std::string::npos) c = l.size();
+        if (c > pos) out.push_back(atol(l.substr(pos, c - pos).c_str()));
+        pos = c + 1;
+    }
 }
 
 // Run the sim clock to `t`, painting at each requested draw time <= t on the way.
@@ -134,29 +260,37 @@ static int run(int argc, char** argv) {
         std::string a = argv[i];
         if (a == "--settle" && i + 1 < argc) settle = atol(argv[++i]);
         else if (a == "--until" && i + 1 < argc) until = atol(argv[++i]);
-        else if (a == "--draw-at" && i + 1 < argc) {
+        else if (a == "--draw-at" && i + 1 < argc) ParseTimes(argv[++i], PanelTimes);
+        else if (a == "--tool-at" && i + 1 < argc) ParseTimes(argv[++i], ToolTimes);
+        else if (a == "--status-at" && i + 1 < argc) ParseTimes(argv[++i], StatusTimes);
+        else if (a == "--fullsig" && i + 1 < argc) ParseTimes(argv[++i], FullsigNos);
+        else if (a == "--draft-relays" && i + 1 < argc) {
             std::string l = argv[++i];
+            std::vector<std::string> page;
             size_t pos = 0;
             while (pos <= l.size()) {
                 size_t c = l.find(',', pos);
                 if (c == std::string::npos) c = l.size();
-                if (c > pos) DrawTimes.push_back(atol(l.substr(pos, c - pos).c_str()));
+                if (c > pos) page.push_back(l.substr(pos, c - pos));
                 pos = c + 1;
             }
-            std::sort(DrawTimes.begin(), DrawTimes.end());
+            DraftPages.push_back(page);
         }
         else if (a == "--draw-dir" && i + 1 < argc) DrawDir = argv[++i];
         else if (a[0] == '-' && a.size() > 1) {
-            fprintf(stderr, "usage: nxtrace [--settle MS] [--until MS] [--draw-at MS[,MS...] --draw-dir DIR] <file.trk|file.xdo>\n");
+            fprintf(stderr, "usage: nxtrace [--settle MS] [--until MS] [--draw-at MS,..] [--tool-at MS,.. --draft-relays N,.. ... --fullsig NO,..] [--status-at MS,..] --draw-dir DIR <file.trk|file.xdo>\n");
             return 64;
         } else file = argv[i];
     }
     if (!file) {
-        fprintf(stderr, "usage: nxtrace [--settle MS] [--until MS] [--draw-at MS[,MS...] --draw-dir DIR] <file.trk|file.xdo>\n");
+        fprintf(stderr, "usage: nxtrace [--settle MS] [--until MS] [--draw-at MS,..] [--tool-at MS,.. --draft-relays N,.. ... --fullsig NO,..] [--status-at MS,..] --draw-dir DIR <file.trk|file.xdo>\n");
         return 64;
     }
+    for (auto* v : {&PanelTimes, &ToolTimes, &StatusTimes}) DrawTimes.insert(DrawTimes.end(), v->begin(), v->end());
+    std::sort(DrawTimes.begin(), DrawTimes.end());
+    DrawTimes.erase(std::unique(DrawTimes.begin(), DrawTimes.end()), DrawTimes.end());
     if (!DrawTimes.empty() && DrawDir.empty()) {
-        fprintf(stderr, "nxtrace: --draw-at needs --draw-dir\n");
+        fprintf(stderr, "nxtrace: --draw-at/--tool-at/--status-at need --draw-dir\n");
         return 64;
     }
     std::filesystem::path p(file);

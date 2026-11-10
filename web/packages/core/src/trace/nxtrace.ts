@@ -39,6 +39,9 @@ export interface NxtraceOptions {
   drawAt?: number[];
   /** receives each paint: the sim time and the nxdraw text (header names the file's basename) */
   onDraw?: (ms: number, text: string) => void;
+  /** extra sim times (ms) at which `onAt(ms)` is called (Phase 5 tool recordings: drafter, full signals, status report) */
+  atTimes?: number[];
+  onAt?: (ms: number) => void;
 }
 
 const baseName = (p: string): string => p.slice(p.lastIndexOf("/") + 1);
@@ -55,7 +58,9 @@ export function runNxtrace(
 ): number {
   const settle = opts.settle ?? 20000;
   const until = opts.until ?? -1;
-  const drawTimes = [...(opts.drawAt ?? [])].sort((a, b) => a - b);
+  const panelTimes = new Set(opts.drawAt ?? []);
+  const atTimes = new Set(opts.atTimes ?? []);
+  const drawTimes = [...new Set([...panelTimes, ...atTimes])].sort((a, b) => a - b);
   let nextDraw = 0;
   const base = baseName(file);
   const dot = base.lastIndexOf(".");
@@ -70,8 +75,11 @@ export function runNxtrace(
   const countRelays = (): number => allRelaySyms().filter((r) => r.relay !== null).length;
 
   const paint = (ms: number): void => {
-    const panelRect: Rect = setupPanelViewport();
-    opts.onDraw?.(ms, recordPaint(base, ms, panelRect));
+    if (panelTimes.has(ms)) {
+      const panelRect: Rect = setupPanelViewport();
+      opts.onDraw?.(ms, recordPaint(base, ms, panelRect));
+    }
+    if (atTimes.has(ms)) opts.onAt?.(ms);
   };
   /** run the clock to t, painting at each requested draw time <= t on the way */
   const runWithDraws = (t: number): void => {

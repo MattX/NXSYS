@@ -1,0 +1,9 @@
+# Phase 5 tool recordings (relay drafter pages, full signal displays, status report).
+# Columns (TAB separated): script/layout, sim times (ms), draft pages (';' between pages, ',' between relays), full-signal numbers.
+# A full-signal number is the signal's XlkgNo, or its StationNo if it has no XlkgNo.
+tools/trace-harness/scripts/myrtle-routes.xdo	1500,12000,14500,30000	157NWK,154U,154V,155BNN,154PB;164H;187CLK,155NLP,170CO	160,166,184,7241,2234
+tools/trace-harness/scripts/atlantic.xdo	1500,12000,14500,30000	213NWK,202U,244V,205LS,244PB;244H;216CO,224XR,221L	244,206,240,232,1509
+tools/trace-harness/scripts/islington.xdo	1500,12000,14500,30000	13NWK,14COU,2V,27RLP;30H;29CLK,15LS	30,10,14,6,8
+tools/trace-harness/scripts/progman.xdo	1500,12000,14500,30000	9RWK,4U,20V,24D,4PB;24H;17CLK,28CO	4,10,14,30,2720
+tools/trace-harness/scripts/irt240.xdo	1500,12000,14500,30000	265NWK,250U,250V,262CO;434H;398ZS,434CO,372CO	462,364,396,262,3284
+tools/trace-harness/scripts/duckburg.xdo	1500,12000,14500,30000	12V,2U,14V,6HV,2PB;2H;27CLK,28XR	8,16,2,32,54

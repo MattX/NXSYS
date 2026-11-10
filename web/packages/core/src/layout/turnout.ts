@@ -5,7 +5,7 @@
  */
 import { ExitLight } from "./exlight.js";
 import { TSAX } from "./geometry.js";
-import { WM_NXGO_RBUTTONCONTROL, WM_RBUTTONDOWN } from "./nxgo.js";
+import { WM_NXGO_RBUTTONCONTROL, WM_RBUTTONDOWN, objectUIHooks } from "./nxgo.js";
 import type { TrackCircuit, TrackJoint, TrackSeg } from "./xtgtrack.js";
 import { nxCoder, killOneCoder } from "../clock/coders.js";
 import { getTickCount, nxTimer } from "../clock/scheduler.js";
@@ -150,10 +150,10 @@ export class Turnout {
   }
 
   /** `mousewhat` is WM_RBUTTONDOWN (toggle) or WM_NXGO_RBUTTONCONTROL (context menu: UI chooses throwSwitch). */
-  hit(mousewhat: number, _ht: TrackSeg): void {
+  hit(mousewhat: number, ht: TrackSeg): void {
     if (mousewhat === WM_RBUTTONDOWN) this.throwSwitch(!this.Thrown);
     else if (mousewhat === WM_NXGO_RBUTTONCONTROL) {
-      /* RunContextMenu: UI. Menu actions are throwSwitch(false/true). */
+      objectUIHooks.contextMenu?.(ht); /* RunContextMenu: UI. Menu actions are throwSwitch(false/true). */
     }
   }
 

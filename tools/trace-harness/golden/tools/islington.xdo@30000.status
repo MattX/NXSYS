@@ -1,0 +1,15 @@
+Islington Station Interlocking  --  27 February 1997
+Top level file: /home/user/NXSYS/tools/trace-harness/scripts/../../../Interlockings/Islington/islingtn.trk
+Modified (on disk): Tue Nov 10 02:53:39 2026
+
+   10  switches (switch levers)
+   18  signals (total)
+   16  controlled signals
+   41  track segments
+   17  track circuits
+   44  exit lights
+  179  total graphic objects
+
+Logic substrate
+
+  646  relays (non-stub)

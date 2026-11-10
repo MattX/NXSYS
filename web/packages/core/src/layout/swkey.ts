@@ -2,7 +2,7 @@
  * SwitchKey — the N/R switch lever on the panel. Port of NXSYS/swkey.cpp (non-TLEDIT).
  * Includes Display(); metrics are in swkeyMetrics (set by initSwitchKeyData).
  */
-import { GraphicObject, TypeId, WM_NXGO_RBUTTONCONTROL, WM_RBUTTONDOWN, mapGraphicObjectsOfType, nxgoState, textMetrics } from "./nxgo.js";
+import { GraphicObject, TypeId, objectUIHooks, WM_NXGO_RBUTTONCONTROL, WM_RBUTTONDOWN, mapGraphicObjectsOfType, nxgoState, textMetrics } from "./nxgo.js";
 import { gdi } from "./geometry.js";
 import { DT_CENTER, DT_NOCLIP, DT_SINGLELINE, DT_VCENTER, RGB, TRANSPARENT, getStockObject, type DC, type Rect } from "../render/dc.js";
 import { gdiObjs } from "../render/gdiobjects.js";
@@ -157,7 +157,7 @@ export class SwitchKey extends GraphicObject {
     if (nxgoState.NXGOHitY > this.sc_y + height) return;
 
     if (mb === WM_NXGO_RBUTTONCONTROL) {
-      /* RunContextMenu: UI. The menu's actions are press(false/true, lock) and clearAux(). */
+      objectUIHooks.contextMenu?.(this); /* RunContextMenu: UI. Actions: press(false/true, lock), clearAux(). */
       return;
     }
 

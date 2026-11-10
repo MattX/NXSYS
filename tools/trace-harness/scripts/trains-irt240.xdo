@@ -1,0 +1,17 @@
+;; Trains at 240th St. (IRT-style IJ names): a train comes down the main track from the yard
+;; lead end and is routed through the interlocking; 240th St yard tracks are not exercised
+;; (the train system does not work there). Paths are relative to this file.
+(clicktime 200 200)
+(load "../../../Interlockings/irt240/irt.240tl.trk")
+(say 2000 "irt240: a train enters on track 4")
+(train 1 create 4064)
+(wait 4000)
+(say 1000 "Route: entrance 422, exit 372")
+(signal 422 "")
+(wait 500)
+(signal 372 "")
+(wait 16000)
+(say 1000 "A second train follows it down the same track")
+(train 2 create 4064 hidedialog)
+(wait 70000)
+(say 1000 "Done.")

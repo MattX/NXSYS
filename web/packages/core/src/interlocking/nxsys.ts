@@ -39,6 +39,8 @@ export const mainWindow = { width: 1024, height: 768 };
 export const nxsysHooks = {
   /** C++ TrainMiscCtl(CmKillTrains), called from DeInstallLayout and Demo(). */
   killTrains: (() => {}) as () => void,
+  /** forget all trains without side effects (fresh-process reset for tests) */
+  discardTrains: (() => {}) as () => void,
 };
 
 export const nxsysState = { GotLayout: false, LayoutFileName: "", GlobalFilePathname: "" };
@@ -51,6 +53,7 @@ const NORMAL_ALL_WAIT_TIME_MS = 1500;
  */
 export function startUpNXSYS(): void {
   scheduler.reset();
+  nxsysHooks.discardTrains();
   killNXTimers();
   deInstallLayout();
   resetNxgoForTests();

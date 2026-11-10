@@ -64,8 +64,8 @@ The fork stays **GPLv3** and keeps Bernard Greenberg's name and credit.
 | 1 | Core: reader, macros, relay engine, clock, interlocking loader | All 6 load; relay counts and traces match | done |
 | 2 | Read-only panel rendering | Panels visually match native | done |
 | 3 | Interaction: NX buttons, switch keys, signals, stops, traffic levers | Routes set/clear correctly | done (trains, relay tools, full-signal windows pending) |
-| 4 | Trains | Run through routes, trip stops, release locking |  |
-| 5 | Relay state/tracer/drafter, status report, demo scripts | Simulator feature parity |  |
+| 4 | Trains | Run through routes, trip stops, release locking | done |
+| 5 | Relay state/tracer/drafter, status report, demo scripts | Simulator feature parity | done except trains (Phase 4); Relay Index tool not ported |
 | 6 | TLEdit on the web | Round-trips the bundled layouts |  |
 | 7 | Mobile/touch, shareable URLs, Worker | — |  |
 

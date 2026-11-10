@@ -168,9 +168,11 @@ class Engine {
           this.loadErrors.push(`${title}: ${text}`);
           return kind === "yesno" ? "no" : "ok";
         }
-        // NOTE: synchronous, as the core requires; blocks the page (and the sim clock) while shown.
+        // "ok" boxes never block: queued for an in-app dialog. Only yes/no boxes (the only user is the
+        // LOGIC HALT RELAY PICKED breakpoint) must answer synchronously, so they use window.confirm.
         if (kind === "yesno") return window.confirm(`${title}\n\n${text}`) ? "yes" : "no";
-        window.alert(`${title}\n\n${text}`);
+        if (this.messageHook) this.messageHook(title, text);
+        else window.alert(`${title}\n\n${text}`);
         return "ok";
       },
       relayDisplayChanged: () => this.invalidate(),
@@ -178,6 +180,7 @@ class Engine {
     setLispBarfHandler((e) => {
       const msg = `${getLispBarfString()}: ${e.message}`;
       if (this.loadErrors) this.loadErrors.push(msg);
+      else if (this.messageHook) this.messageHook("NXSYS", msg);
       else window.alert(msg);
     });
     layoutHooks.setDisplayWPOrg = (x, y) => {
@@ -194,15 +197,20 @@ class Engine {
     };
     dynMenuUI.showIDBox = () => this.bump();
     dynMenuUI.lampReport = () => this.bump();
-    Signal.uiHooks.showFullsigWindow = undefined; // TODO: full-signal windows
     demoUI.say = (m) => this.set({ caption: m });
     demoUI.hide = () => this.set({ caption: null, yellowX: null });
     demoUI.showBigYellowX = (x, y) => this.set({ yellowX: { x, y } });
     demoUI.unShowBigYellowX = () => this.set({ yellowX: null });
   }
 
+  /** extra repaint listeners (tool windows) */
+  readonly invalidateListeners = new Set<() => void>();
+  /** Phase 5 hooks: ok-box queue, and cleanup when a layout is (re)loaded; set by relays/tools */
+  messageHook: ((title: string, text: string) => void) | null = null;
+  layoutChangedHook: (() => void) | null = null;
   invalidate(): void {
     this.paintHook?.();
+    for (const l of this.invalidateListeners) l();
   }
 
   /* ---- loading ---- */
@@ -217,6 +225,7 @@ class Engine {
     this.layoutH = d.bottom;
     nxgoSetViewportDims(d.right, d.bottom); // whole layout is the viewport; the page scrolls/zooms it
     enableDynMenus(true);
+    this.layoutChangedHook?.();
     const origin = this.pendingOrigin;
     this.pendingOrigin = null;
     this.layoutSizeHook?.(d.right, d.bottom, origin);

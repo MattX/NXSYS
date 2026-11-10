@@ -9,7 +9,7 @@
     "build": "node scripts/copy-assets.mjs && tsc --noEmit -p . && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p .",
-    "e2e": "node e2e/smoke.mjs"
+    "e2e": "node e2e/smoke.mjs && node e2e/tools.mjs && node e2e/trains.mjs"
   },
   "dependencies": {
     "@nxsys/core": "*",

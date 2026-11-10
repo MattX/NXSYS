@@ -17,6 +17,7 @@ import {
   TypeId,
   WM_LBUTTONDOWN,
   WM_NXGO_RBUTTONCONTROL,
+  objectUIHooks,
   WM_RBUTTONDOWN,
   nxgoState,
   WPXtoSC,
@@ -453,7 +454,9 @@ export class TrackSeg extends GraphicObject {
   /** left click toggles occupancy, right click on a switch segment throws the switch. */
   override hit(mb: number): void {
     if (this.OwningTurnout && (mb === WM_RBUTTONDOWN || mb === WM_NXGO_RBUTTONCONTROL)) this.OwningTurnout.hit(mb, this);
+    else if (objectUIHooks.chooseTrack?.(this)) return;
     else if (mb === WM_LBUTTONDOWN && this.Circuit) this.Circuit.setOccupied(!this.Circuit.Occupied);
+    else if (mb === WM_NXGO_RBUTTONCONTROL && this.Circuit) objectUIHooks.contextMenu?.(this);
     /* WM_NXGO_RBUTTONCONTROL on a plain circuit raises a context menu (UI); the menu's actions
        are Circuit.setOccupied(true/false), and relay display commands. */
   }

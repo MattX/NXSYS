@@ -27,7 +27,8 @@ void DeleteMenu(HMENU, int, int) {}
 void EnableMenuItem(HMENU, int, int) {}
 void DestroyWindow(HWND) {}
 void CheckRadioButton(HWND, int, int, int) {}
-void GetClientRect(HWND, RECT* r) { r->left = r->top = 0; r->right = 1024; r->bottom = 768; }
+int HeadlessClientW = 1024, HeadlessClientH = 768;   // main.cpp sets these while recording a full-signal window
+void GetClientRect(HWND, RECT* r) { r->left = r->top = 0; r->right = HeadlessClientW; r->bottom = HeadlessClientH; }
 void GetWindowRect(HWND, RECT* r) { GetClientRect(NULL, r); }
 HWND GetDesktopWindow() { return (HWND)&TheDummyWindow; }
 HWND GetDlgItem(HWND, int) { return NULL; }

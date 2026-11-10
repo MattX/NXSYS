@@ -60,3 +60,31 @@ for s in "$HERE"/scripts/*.xdo; do
     n=$(basename "$s" .xdo)
     gen "script-$n" "$s" demo
 done
+
+# ---- Phase 5 tool recordings: golden/tools/<file>@<ms>.draft<k>.nxdraw | .fullsig<N>.nxdraw | .status ----
+# Spec in tools-spec.txt. Each run is also checked to leave the relay trace unchanged and to be deterministic.
+TOOLS="$OUT/tools"
+rm -rf "$TOOLS"
+mkdir -p "$TOOLS"
+grep -v '^#' "$HERE/tools-spec.txt" | while IFS="$(printf '\t')" read -r src times pages sigs; do
+    [ -n "$src" ] || continue
+    args=""
+    oldifs=$IFS; IFS=';'
+    for pg in $pages; do args="$args --draft-relays $pg"; done
+    IFS=$oldifs
+    base=$(basename "$src")
+    tn=$(basename "$src" .xdo | sed 's/\.trk$//')
+    tn=$( [ "${src##*.}" = xdo ] && echo "script-$tn" || echo "load-$tn")
+    tmp=$(mktemp -d)
+    # shellcheck disable=SC2086
+    "$NX" --tool-at "$times" --status-at "$times" $args --fullsig "$sigs" --draw-dir "$TOOLS" "$ROOT/$src" 2>"$tmp/stderr" | cmp -s - "$OUT/$tn.trace" \
+        || { echo "TOOL RECORDING CHANGED TRACE: $src" >&2; exit 1; }
+    # shellcheck disable=SC2086
+    "$NX" --tool-at "$times" --status-at "$times" $args --fullsig "$sigs" --draw-dir "$tmp" "$ROOT/$src" >/dev/null 2>&1
+    for f in "$tmp"/*; do
+        [ "$(basename "$f")" = stderr ] && continue
+        cmp -s "$f" "$TOOLS/$(basename "$f")" || { echo "NONDETERMINISTIC TOOL OUTPUT: $f" >&2; exit 1; }
+    done
+    rm -rf "$tmp"
+    echo "tools $base: $(ls "$TOOLS" | grep -c "^$base@") files"
+done

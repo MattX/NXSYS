@@ -6,10 +6,21 @@
  * 100 ms more (X ending), before the next form is read. Demo UI (the caption window, the yellow X)
  * is exposed as hooks (demoUI).
  *
- * Trains (TRAIN forms) are Phase 4 and are reported as demo errors here.
+ * TRAIN forms drive the train system (src/trains/train.ts).
  */
 import { LispFileInputSource, readSexp } from "../lisp/reader.js";
-import { Cons, LispSentinel, Sym, NIL, type Sexpr } from "../lisp/types.js";
+import { Cons, LFloat, LRational, LispSentinel, Sym, NIL, type Sexpr } from "../lisp/types.js";
+import { lCoerceToFloat } from "../lisp/math.js";
+import {
+  TRAIN_CTL_FREEWILL,
+  TRAIN_CTL_HALTED,
+  TRAIN_CTL_HIDEDLG,
+  TRAIN_CTL_MINDLG,
+  trainAutoCmd,
+  trainAutoCreate,
+  trainAutoLookupCommand,
+  trainAutoSetSpeed,
+} from "../trains/train.js";
 import { host } from "../host.js";
 import { nxTimer, killOneTimer } from "../clock/scheduler.js";
 import { RlySym } from "../lisp/types.js";
@@ -276,8 +287,40 @@ function processForm(s: Sexpr | LispSentinel, mousecmd: number = WM_LBUTTONDOWN)
 
 const numOf = (s: Sexpr): number => (typeof s === "number" ? s : 0);
 
-function demoTrain(_s: Sexpr): void {
-  throw new DemoErr("TRAIN forms are not supported yet (trains arrive in Phase 4).");
+/** C++ DemoTrain: (TRAIN n SPEED x | CREATE track opts... | <command>) */
+function demoTrain(S: Sexpr): void {
+  if (!isCons(S) || typeof S.car !== "number") throw new DemoErr("Missing numeric train number in TRAIN form.");
+  const trainNo = S.car;
+  S = S.cdr;
+  if (!isCons(S) || !(S.car instanceof Sym)) throw new DemoErr(`Missing train command symbol in TRAIN ${trainNo} form.`);
+  const cmd = S.car.name;
+  S = S.cdr;
+  if (cmd === "SPEED") {
+    const a = isCons(S) ? S.car : null;
+    if (!(typeof a === "number" || a instanceof LFloat || a instanceof LRational))
+      throw new DemoErr(`Missing numeric train speed in TRAIN ${trainNo} SPEED`);
+    if (!trainAutoSetSpeed(trainNo, (lCoerceToFloat(a) as LFloat).value))
+      throw new DemoErr(`Could not set speed for train# ${trainNo}`);
+  } else if (cmd === "CREATE") {
+    if (!isCons(S) || typeof S.car !== "number") throw new DemoErr(`Missing track # in TRAIN ${trainNo} CREATE`);
+    const startPlaceId = S.car;
+    let options = 0;
+    S = S.cdr;
+    for (; isCons(S); S = S.cdr) {
+      if (!(S.car instanceof Sym)) throw new DemoErr(`Non-atomic create option in train ${trainNo} CREATE`);
+      const createCmd = S.car.name;
+      if (createCmd === "HALTED") options |= TRAIN_CTL_HALTED;
+      else if (createCmd === "HIDEDIALOG") options |= TRAIN_CTL_HIDEDLG;
+      else if (createCmd === "MINIMIZEDIALOG") options |= TRAIN_CTL_MINDLG;
+      else if (createCmd === "FREEWILL") options |= TRAIN_CTL_FREEWILL;
+      else throw new DemoErr(`Train ${trainNo} CREATE: unknown create option: ${createCmd}`);
+    }
+    if (!trainAutoCreate(trainNo, startPlaceId, options)) throw new DemoErr(`Could not create train# ${trainNo}`);
+  } else {
+    const icmd = trainAutoLookupCommand(cmd);
+    if (icmd === null) throw new DemoErr(`Unknown TRAIN command: ${cmd}`);
+    else if (!trainAutoCmd(trainNo, icmd)) throw new DemoErr(`Could not TRAIN ${trainNo} ${cmd}`);
+  }
 }
 
 function decodeOptions(S: Sexpr): void {

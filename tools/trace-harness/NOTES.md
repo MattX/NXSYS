@@ -77,3 +77,28 @@ Files originally CRLF (demo.cpp, traindcl.h, nxgo.cpp, trkgdi.cpp, joint.cpp) ke
 load-* for the six interlockings (Duckburg main file is db7.trk, which includes dburg.trk and stdmacs.trk; library uses db7; dburg.trk alone also captured),
 demo-Myrtle (Interlockings/Myrtle/Myrtle.xdo), script-* (scripts/*.xdo: throw 2 switches, set 1-2 routes; entrance H/HV relays pick).
 Demo `load` paths are relative to the .xdo file (replace_filename).
+
+## Trains (Phase 4)
+Goldens `script-trains-{progman,myrtle,islington,atlantic,duckburg,irt240}` (scripts/trains-*.xdo, trace + draw every 2500 ms). No core patch was needed
+beyond patch 3 (Occupied insertion order); audit: `Trains` is `std::map<int,...>` (ordered), all train time is `GetTickCount()` (sim), no rand, valgrind shows no
+train-related uninitialised reads. Trains draw nothing themselves; only the track-circuit relays they drive (occupied track, signals, locking) show on the panel.
+Behaviours the scripts pin down (and the TS port reproduces):
+- `(train n create <IJ#> freewill)`: FREEWILL is accepted but ignored (only HALTED is tested in the ctor); use `(train n freewill)`.
+- `(train n hide)` is not handled by `Train::Command` -> demo error "Could not TRAIN n HIDE" (demo ends). minimize/restore are no-ops here.
+- Observance rounds a speed increment < 1.5 ft/s per 500 ms tick to 0: a stopped train > ~600 ft from its signal never starts by itself (`(train n speed 20)` nudges it).
+- A train stopped at a red signal restarts when the signal changes (signal hook -> ComputeNextMotion).
+- Tripping (Mac MessageBoxWithImage) prints `MSGBOX:` on stderr; train is destroyed (occupancy released in insertion order).
+- Kill-all (`Trains.clear()`) destroys in descending train number order under libstdc++ (the TS port does the same; no golden kills several trains at once).
+- 240th St: trains work on the main tracks (IRT-style IJ ids) but not on the yard tracks (no usable real-world lengths); trains-irt240 uses track 4.
+
+## Phase 5 tool recordings (`--tool-at`, `--draft-relays`, `--fullsig`, `--status-at`)
+`nxtrace --tool-at MS,.. [--draft-relays N,N,..]... [--fullsig NO,..] --draw-dir D file` runs the clock to each time and writes
+`D/<base>@<ms>.draft<k>.nxdraw` (one per `--draft-relays` page, k = 0,1,..), `D/<base>@<ms>.fullsig<NO>.nxdraw`; `--status-at MS,..` writes
+`D/<base>@<ms>.status`. No core patches: main.cpp drives the unmodified core functions.
+- Drafter: per page, `ClearRelayGraphics`, then for each name `DrawRelayFromName` + `PlaceRelayDrawing` (the Mac's DrawRelayAPI sequence; a circuit
+  that does not fit prints "too big" to stderr), then the RelayDrafterView paint (BLACK_PEN, text 0, TRANSPARENT, `RenderRelayPage`). The Mac never calls
+  `DrawingSetPageSize`, so the page is the ldgut.cpp default: cells 80x32, 10 x 50 cells; `VIEW 0 0 880 1664 1` is an arbitrary extent.
+- Full signal: `MakeSigWin` + `CallFSWinDisp` as FullSignalView.mm drawRect; client rect 60 x (10 + UnitHeight + 20) (HeadlessStubs `GetClientRect` is now settable).
+  Signals are identified by XlkgNo, or StationNo when they have none.
+- Status: `InterlockingFileStatus().Report()`; compare ignoring the "Top level file" and "Modified (on disk)" lines (and the blank line ctime leaves).
+- Spec of what is recorded: `tools-spec.txt` (read by make-golden.sh and by web/packages/core/test/golden-tools.test.ts). Goldens: `golden/tools/`.

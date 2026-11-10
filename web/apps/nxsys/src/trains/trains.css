@@ -1,0 +1,19 @@
+.tr-win { position: fixed; width: 230px; background: var(--bar); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 8px 24px #0009; font-size: 12px; max-width: calc(100vw - 8px); }
+.tr-win.min { width: 230px; }
+.tr-title { display: flex; align-items: center; gap: 8px; padding: 3px 4px 3px 8px; cursor: move; user-select: none; touch-action: none; background: #2b323a; border-radius: 6px 6px 0 0; }
+.tr-title > span:first-child { flex: 1; font-weight: 600; }
+.tr-mini { color: #9fb0c0; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
+.tr-x { font: inherit; background: none; border: 0; color: inherit; cursor: pointer; padding: 0 6px; font-size: 15px; line-height: 1; }
+.tr-body { padding: 6px 8px 8px; display: flex; flex-direction: column; gap: 3px; }
+.tr-row { display: flex; justify-content: space-between; gap: 8px; }
+.tr-lab { color: #9fb0c0; }
+.tr-val { font-variant-numeric: tabular-nums; text-align: right; }
+.tr-body input[type=range] { width: 100%; margin: 2px 0; }
+.tr-radio { justify-content: flex-start; gap: 14px; }
+.tr-btns { gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.tr-btns .tb { min-height: 26px; padding: 2px 8px; }
+.tb.danger { color: #ffb4b4; }
+.tr-offer { position: fixed; left: 50%; top: 56px; transform: translateX(-50%); z-index: 90; background: #3a3320; border: 1px solid #c9a227; border-radius: 6px; padding: 6px 10px; display: flex; gap: 10px; align-items: center; max-width: calc(100vw - 16px); }
+.tr-entries-title { padding: 2px 8px; font-size: 12px; }
+.tr-entries { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 8px 6px; }
+.tr-entries .tr-ent { width: auto; border: 1px solid var(--line); background: #2b323a; padding: 2px 8px; }

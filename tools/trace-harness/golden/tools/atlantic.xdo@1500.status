@@ -1,0 +1,15 @@
+Atlantic Avenue/Nevins St of 26 January 2021
+Top level file: /home/user/NXSYS/tools/trace-harness/scripts/../../../Interlockings/Atlantic/atlantic.trk
+Modified (on disk): Tue Nov 10 02:53:39 2026
+
+   21  switches (switch levers)
+   46  signals (total)
+   28  controlled signals
+  116  track segments
+   60  track circuits
+   80  exit lights
+  440  total graphic objects
+
+Logic substrate
+
+ 1190  relays (non-stub)

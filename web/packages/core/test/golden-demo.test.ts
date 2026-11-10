@@ -13,6 +13,12 @@ const demos: [string, string][] = [
   ["script-myrtle-routes", "tools/trace-harness/scripts/myrtle-routes.xdo"],
   ["script-myrtle-occupy", "tools/trace-harness/scripts/myrtle-occupy.xdo"],
   ["script-progman", "tools/trace-harness/scripts/progman.xdo"],
+  ["script-trains-progman", "tools/trace-harness/scripts/trains-progman.xdo"],
+  ["script-trains-myrtle", "tools/trace-harness/scripts/trains-myrtle.xdo"],
+  ["script-trains-islington", "tools/trace-harness/scripts/trains-islington.xdo"],
+  ["script-trains-atlantic", "tools/trace-harness/scripts/trains-atlantic.xdo"],
+  ["script-trains-duckburg", "tools/trace-harness/scripts/trains-duckburg.xdo"],
+  ["script-trains-irt240", "tools/trace-harness/scripts/trains-irt240.xdo"],
 ];
 
 describe("golden demo traces", () => {

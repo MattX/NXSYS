@@ -12,10 +12,10 @@
 html, body, #root { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
 .app { display: flex; flex-direction: column; height: 100%; min-width: 0; }
-.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; background: var(--bar); border-bottom: 1px solid var(--line); position: relative; z-index: 20; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 5px 8px; background: var(--bar); border-bottom: 1px solid var(--line); position: relative; z-index: 250; }
 .brand { letter-spacing: .08em; margin-right: 4px; }
 .sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
-.tb { font: inherit; color: var(--fg); background: #2b323a; border: 1px solid var(--line); border-radius: 5px; padding: 4px 9px; min-height: 30px; cursor: pointer; }
+.tb { font: inherit; color: var(--fg); background: #2b323a; border: 1px solid var(--line); border-radius: 5px; padding: 4px 7px; min-height: 30px; cursor: pointer; }
 .tb:hover:not(:disabled) { background: #36404a; }
 .tb:disabled { opacity: .45; cursor: default; }
 .tb[aria-pressed="true"] { border-color: var(--accent); }
@@ -75,3 +75,33 @@ a { color: var(--accent); }
   .brand { display: none; }
   .tb { padding: 4px 7px; }
 }
+
+/* Phase 5 tool windows */
+.fwin { position: fixed; background: var(--bar); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 8px 24px #0009; display: flex; flex-direction: column; max-width: calc(100vw - 8px); max-height: calc(100vh - 48px); }
+.fwin.bare { background: #ececec; border-radius: 3px; }
+.fwin-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 3px 4px 3px 8px; cursor: move; user-select: none; touch-action: none; background: #2b323a; border-radius: 6px 6px 0 0; font-size: 12px; }
+.fwin.bare .fwin-title { background: #c9c9c9; color: #222; font-size: 10px; padding: 0 2px 0 4px; }
+.fwin-x { font: inherit; background: none; border: 0; color: inherit; cursor: pointer; padding: 0 6px; font-size: 16px; line-height: 1; }
+.fwin-body { overflow: auto; min-height: 0; display: flex; flex-direction: column; }
+.fwin-bar { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.fwin-bar input, .rl-filter, .modal-box input[type=text], .modal-box input:not([type]) { font: inherit; color: var(--fg); background: #11151a; border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; }
+.drafter-scroll { width: min(880px, calc(100vw - 40px)); height: min(560px, calc(100vh - 160px)); overflow: auto; background: #fff; }
+.rs { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; min-width: 240px; }
+.rs-name { font-weight: 600; }
+.rs-list { height: 180px; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: #11151a; font: 13px ui-monospace, monospace; }
+.rs-row { display: flex; justify-content: space-between; gap: 16px; padding: 1px 6px; cursor: default; }
+.rs-row.sel { cursor: pointer; } .rs-row.on { background: #36404a; }
+.rs-row:hover { background: #26303a; }
+.rs-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.pk { color: #6f6; } .dr { color: var(--muted); }
+.rl { padding: 8px; display: flex; flex-direction: column; gap: 6px; width: 300px; }
+.rl-scroll { height: 528px; overflow: auto; border: 1px solid var(--line); background: #11151a; }
+.rl-row { position: absolute; left: 0; right: 0; height: 22px; display: flex; justify-content: space-between; padding: 1px 8px; font: 13px ui-monospace, monospace; cursor: pointer; }
+.rl-row:hover { background: #26303a; }
+.tr { width: min(460px, calc(100vw - 20px)); }
+.tr-log { margin: 0; height: 300px; overflow: auto; padding: 6px 8px; background: #0b0e12; font: 12px/1.35 ui-monospace, monospace; }
+.status-text { margin: 0; padding: 10px 14px; font: 13px/1.4 ui-monospace, monospace; max-width: 90vw; overflow: auto; }
+.ctxmenu { position: fixed; z-index: 300; min-width: 210px; background: var(--bar); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 8px 24px #000a; padding: 4px; }
+.modal-box.small { max-width: 340px; display: flex; flex-direction: column; gap: 8px; }
+.modal-box fieldset { border: 1px solid var(--line); border-radius: 4px; margin: 0; }
+.modal-box .row { display: flex; gap: 6px; align-items: center; }

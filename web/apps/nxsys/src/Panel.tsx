@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { engine } from "./engine";
+import { tools } from "./relays/tools";
 import { CanvasDC } from "./canvasdc";
 import type { Rect } from "@nxsys/core/src/render/dc";
 import { drawDcTest, replayDump } from "./dctest";
@@ -265,13 +266,15 @@ export function Panel({ zoom, setZoom, fitTick }: Props) {
 
   const onPointerDown = (e: React.PointerEvent) => {
     const sc = scrollRef.current!;
+    tools.lastPointer = { x: e.clientX, y: e.clientY };
     if (e.pointerType === "touch") {
       const t = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, timer: 0 };
       t.timer = window.setTimeout(() => {
         if (touch.current === t && !t.moved) {
           // long press = right click
           const w = toWorld(e);
-          engine.mouse(w.x, w.y, "right", { shift: false, ctrl: false });
+          // long press = the context menu gesture (Mac: control + right button)
+          engine.mouse(w.x, w.y, "right", { shift: false, ctrl: true });
           engine.mouseUp();
           touch.current = null;
         }

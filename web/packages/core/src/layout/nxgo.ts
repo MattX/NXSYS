@@ -40,6 +40,13 @@ export const WM_NXGO_LBUTTONSHIFT = WM_USER + 1;
 export const WM_NXGO_LBUTTONCONTROL = WM_USER + 2;
 export const WM_NXGO_RBUTTONCONTROL = WM_USER + 3;
 
+/** UI hooks for object context menus (C++ GraphicObject::RunContextMenu); set by the app via tools/contextmenu.ts. */
+export const objectUIHooks: {
+  contextMenu?: (g: GraphicObject) => void;
+  /** Mac GlobalOfferingChooseTrack: a track section was clicked while a new train is being placed; true = consumed */
+  chooseTrack?: (g: GraphicObject) => boolean;
+} = {};
+
 export interface Rect {
   left: number;
   top: number;

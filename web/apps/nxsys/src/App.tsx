@@ -4,6 +4,9 @@ import { useEngine } from "./useEngine";
 import { Panel, MIN_ZOOM, MAX_ZOOM, hasPaintLayout } from "./Panel";
 import { Dropdown, type MenuItem } from "./Dropdown";
 import { HelpPanel } from "./HelpPanel";
+import { ToolLayer } from "./relays/ToolLayer";
+import { TrainsMenu, TrainLayer } from "./trains/TrainLayer";
+import { tools, useTools } from "./relays/tools";
 import { SHOW_STOPS_ALWAYS, SHOW_STOPS_NEVER, SHOW_STOPS_RED } from "@nxsys/core/src/layout/signal";
 
 const fmtTime = (ms: number): string => {
@@ -68,6 +71,7 @@ function IdMenus() {
 
 export function App() {
   const s = useEngine();
+  const ts = useTools();
   const [zoom, setZoom] = useState(1);
   const [fitTick, setFitTick] = useState(0);
   const [help, setHelp] = useState(false);
@@ -79,6 +83,7 @@ export function App() {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
+    tools.init();
     (async () => {
       await engine.init();
       const lib = engine.getSnapshot().library;
@@ -115,8 +120,22 @@ export function App() {
     { label: "Show stops: never", checked: s.stopPolicy === SHOW_STOPS_NEVER, onClick: () => engine.setStopPolicy(SHOW_STOPS_NEVER), disabled: off },
     { separator: true, label: "" },
     { label: "Reload", onClick: () => void engine.reload(), disabled: off },
-    { label: "Trains — not yet ported (Phase 4)", disabled: true },
-    { label: "Relay query/trace/drafter — not yet ported (Phase 5)", disabled: true },
+  ];
+  const fileMenu: MenuItem[] = [
+    { label: "File info…", onClick: () => tools.showStatus(), disabled: off },
+    { label: "Preferences…", onClick: () => tools.openPrefs(true) },
+  ];
+  const relaysMenu: MenuItem[] = [
+    { label: "Query relay…", onClick: () => tools.askQuery(), disabled: off },
+    { label: "Draw relay circuit…", onClick: () => tools.askDraw(), disabled: off },
+    { label: "Relay list…", onClick: () => tools.openRelayList(), disabled: off },
+    { separator: true, label: "" },
+    { label: "Trace to console", onClick: () => tools.toggleTraceConsole(), checked: ts.consoleTraceOn, disabled: off },
+    { label: "Trace to window", onClick: () => tools.toggleTraceWindow(), checked: ts.traceOn, disabled: off },
+  ];
+  const viewMenu: MenuItem[] = [
+    { label: "Relay Draftsperson", onClick: () => tools.toggleDrafter(), checked: ts.wins.some((w) => w.kind === "drafter"), disabled: off },
+    { label: "Flush Full Signal Displays", onClick: () => tools.flushFullSignals(), disabled: off },
   ];
   const demoMenu: MenuItem[] = [
     ...s.demos.map((d) => ({ label: d.replace(/^Interlockings\//, ""), onClick: () => void engine.runLibraryDemo(d), disabled: s.loading })),
@@ -184,8 +203,12 @@ export function App() {
           Fit
         </button>
         <span className="sep" />
+        <Dropdown label="File" items={fileMenu} />
         <Dropdown label="Interlocking" items={interlockingMenu} />
+        <Dropdown label="Relays" items={relaysMenu} />
+        <Dropdown label="View" items={viewMenu} />
         <Dropdown label="Demo" items={demoMenu} />
+        <TrainsMenu />
         <IdMenus />
         <button className="tb" onClick={() => setHelp(!help)} aria-pressed={help}>
           Help
@@ -229,6 +252,8 @@ export function App() {
         {help && <HelpPanel onClose={() => setHelp(false)} />}
       </main>
       <StatusLine />
+      <ToolLayer />
+      <TrainLayer />
 
       <input
         ref={folderRef}
