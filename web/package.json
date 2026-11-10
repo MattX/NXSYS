@@ -1,0 +1,16 @@
+{
+  "name": "nxsys-web",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b packages/core"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  }
+}
