@@ -218,11 +218,19 @@ static void InitStockObjects() {
     StockObjects[LTGRAY_BRUSH] = CreateSBrush(RGB(200,200,200));   //+++ learn by experience what the right value ought be
     StockObjects[BLACK_PEN] = CreateSPen(2, RGB(0,0,0));
     NullPen = StockObjects[NULL_PEN] = CreateSPen(20, RGB(7,7,7));
+#if NX_HEADLESS
+    NullPen = (HPEN)NULL_PEN;   /* trace harness: stock objects keep their identity (draw recorder prints STOCK names) */
+#endif
 }
 
 /* Implement Windows API "GetStockObject" right here. */
 HGDIOBJ GetStockObject(HGDIOBJ moniker) {
     long monica = (long)moniker;
+#if NX_HEADLESS
+    if (monica > BRUSH_PEN_FIRST && monica < BRUSH_PEN_END)
+        return moniker;          /* trace harness: hand back the 1001..1005 handle itself */
+    return NULL;
+#endif
     /* input -- a number between 1001 and 1004 inclusive */
     /* output (if not null) a GDI handle which is 1+ an index into table */
     if (!(monica > BRUSH_PEN_FIRST && monica < BRUSH_PEN_END))

@@ -754,7 +754,7 @@ function processTextForm(s: Sexpr): GraphicObject | null {
       v = CDR(v);
       if (!NUMBERP(CAR(v))) return BARF(badcol);
       const b = numVal(CAR(v));
-      Color = (r & 0xff) | ((g & 0xff) << 8) | ((b & 0xff) << 16); /* RGB() */
+      Color = (r << 16) | (g << 8) | b; /* RGB() of the Mac windows.h: (r << 16) | (g << 8) | b, unmasked like the C macro */
       ColorGiven = true;
     } else return BARF(`Unknown Font keyword in TEXT form: ${kw}`);
   }

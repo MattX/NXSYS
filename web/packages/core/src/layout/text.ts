@@ -1,11 +1,25 @@
 /*
  * TextString (TEXT layout form). Port of NXSYS/text.cpp (+ the form parser of txlayout.cpp lives
- * in interlocking/xtgload.ts). Display omitted; S.* has everything a renderer needs.
+ * in interlocking/xtgload.ts), including Display().
  */
-import { GraphicObject, TypeId, nxgoState, textMetrics, type LogFont } from "./nxgo.js";
+import { GraphicObject, TypeId, WPXtoSC, WPYtoSC, nxgoState, textMetrics, type LogFont } from "./nxgo.js";
+import {
+  DT_CENTER,
+  DT_NOCLIP,
+  DT_SINGLELINE,
+  DT_VCENTER,
+  FW_BOLD as DC_FW_BOLD,
+  FW_NORMAL as DC_FW_NORMAL,
+  createFontIndirect,
+  type DC,
+  type Font,
+  type Rect,
+} from "../render/dc.js";
+import { gdiObjs, TrackDftCol } from "../render/gdiobjects.js";
 
-export const FW_NORMAL = 400;
-export const FW_BOLD = 700;
+/* values of the Mac windows.h (what the layout loader stores in LOGFONT.lfWeight) */
+export const FW_NORMAL = DC_FW_NORMAL;
+export const FW_BOLD = DC_FW_BOLD;
 export const NXSYS_DEFAULT_TEXT_HEIGHT = 20;
 export const NXSYS_DEFAULT_TEXT_WEIGHT = FW_BOLD;
 
@@ -57,6 +71,39 @@ export class TextString extends GraphicObject {
 
   override typeID(): TypeId {
     return TypeId.TEXT;
+  }
+
+  /** The canonical HFONT for the current scale (S.HFont in C++). */
+  scaledHFont(): Font {
+    const lf = this.scaledFont();
+    return createFontIndirect({
+      height: lf.lfHeight,
+      weight: lf.lfWeight,
+      width: lf.lfWidth,
+      italic: lf.lfItalic,
+      face: lf.lfFaceName,
+    });
+  }
+
+  /** C++ TextString::Display */
+  override display(hdc: DC): void {
+    if (nxgoState.NXGO_Scale !== this.S.AssumedScale) this.scaleSelf();
+
+    const r: Rect = {
+      left: WPXtoSC(this.wp_x + this.wp_limits.left),
+      right: WPXtoSC(this.wp_x + this.wp_limits.right),
+      top: WPYtoSC(this.wp_y + this.wp_limits.top),
+      bottom: WPYtoSC(this.wp_y + this.wp_limits.bottom),
+    };
+    const font = this.scaledHFont();
+    hdc.selectObject(font);
+    const tc = hdc.getTextColor();
+    hdc.setTextColor(this.S.ColorGiven ? this.S.Color : TrackDftCol);
+    /* whoops have to scale the damned thing for screen scaling*/
+    hdc.selectObject(font);
+    hdc.drawText(this.S.String, r, DT_VCENTER | DT_CENTER | DT_SINGLELINE | DT_NOCLIP);
+    hdc.setTextColor(tc);
+    hdc.selectObject(gdiObjs.Fnt);
   }
   override mouseSensitive(): boolean {
     return false;

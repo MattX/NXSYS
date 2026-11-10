@@ -2,7 +2,7 @@
 // (Winapi.mm, DeviceContext.mm, MessageBox.mm, MiscApi.mm, MainView.mm,
 // AppDelegate.mm, dialogs, BigYellowX, ...) provides to the portable core,
 // plus the compiled-code (.tko) support entry points the headless build omits.
-// All GDI/window calls are no-ops.
+// Window/dialog calls are no-ops (GDI lives in DrawRecorder.cpp).
 
 #include "windows.h"
 #include "MessageBox.h"
@@ -15,15 +15,9 @@
 #include <stdio.h>
 #include <string>
 
-struct __DC_ { int dummy; };
-static __DC_ TheDummyDC;
 static int TheDummyWindow;
 
-// ---- GDI / window no-ops -------------------------------------------------
-HDC GetDC(HWND) { return &TheDummyDC; }
-HDC ReleaseDC(HWND, HDC) { return NULL; }
-HFONT CreateFontIndirect(LOGFONT*) { return NULL; }
-void DeleteObject(void*) {}
+// ---- GDI: see DrawRecorder.cpp (records the nxdraw display list) --------
 void DebugBreak() { abort(); }
 void FatalAppExit(int, const char* text) {
     fprintf(stderr, "FATALAPPEXIT: %s\n", text);
@@ -33,27 +27,6 @@ void DeleteMenu(HMENU, int, int) {}
 void EnableMenuItem(HMENU, int, int) {}
 void DestroyWindow(HWND) {}
 void CheckRadioButton(HWND, int, int, int) {}
-// Fake fixed-pitch text metrics (graphics only; keeps label geometry defined).
-int DrawText(HDC, const char* s, unsigned long len, RECT* r, int flags) {
-    if (r && (flags & DT_CALCRECT)) {
-        r->right = r->left + (int)(len ? len : strlen(s)) * 7;
-        r->bottom = r->top + 14;
-    }
-    return 14;
-}
-void Ellipse(HDC, int, int, int, int) {}
-void FillRect(HDC, RECT*, HBRUSH) {}
-void LineTo(HDC, int, int) {}
-void MoveTo(HDC, int, int) {}
-void MoveToEx(HDC, int, int, void*) {}
-void Rectangle(HDC, int, int, int, int) {}
-void NXM_Polygon(HDC, POINT*, int) {}
-void SelectObject(HDC, void*) {}
-void SetBkColor(HDC, COLORREF) {}
-void SetBkMode(HDC, int) {}
-void SetTextColor(HDC, COLORREF) {}
-COLORREF GetTextColor(HDC) { return 0; }
-int GetBkMode(HDC) { return 0; }
 void GetClientRect(HWND, RECT* r) { r->left = r->top = 0; r->right = 1024; r->bottom = 768; }
 void GetWindowRect(HWND, RECT* r) { GetClientRect(NULL, r); }
 HWND GetDesktopWindow() { return (HWND)&TheDummyWindow; }

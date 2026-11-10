@@ -4,9 +4,9 @@
  * v2/xsignal.cpp (PanelSignal geometry), stop.cpp + v2/xstop.cpp (trip stop), and the
  * ProcessLoadComplete methods of rdtrkcmn.cpp.
  *
- * UI-only parts omitted: full-signal window drawing, context menus, GDI. Their entry points are
- * hooks (Signal.uiHooks). Geometry for rendering: PanelSignal.wp_x/wp_y (head center),
- * Radius, getAngles()/getDispPoints() (stem + crossbar), label (Label); Stop.x1..y3 (triangle).
+ * UI-only parts omitted: full-signal window drawing, context menus. Their entry points are
+ * hooks (Signal.uiHooks). The panel drawing (PanelSignal::Display/DrawFleeting, Stop::Display,
+ * Signal::GetGKBrush) is ported; the full-signal window drawing (fullsig.cpp) is not.
  */
 import {
   GraphicObject,
@@ -17,9 +17,15 @@ import {
   WM_NXGO_LBUTTONSHIFT,
   WM_NXGO_RBUTTONCONTROL,
   WM_RBUTTONDOWN,
+  WPXtoSC,
+  WPYtoSC,
   computeVisibleObjectsLast,
   mapGraphicObjectsOfType,
+  nxgoState,
 } from "./nxgo.js";
+import type { Brush, DC } from "../render/dc.js";
+import { getStockObject } from "../render/dc.js";
+import { gdiObjs } from "../render/gdiobjects.js";
 import { Glb, TSEX, f32, gdi } from "./geometry.js";
 import type { TrackSeg } from "./xtgtrack.js";
 import { nxCoder, killOneCoder, nxFastCoder, killOneFastCoder } from "../clock/coders.js";
@@ -214,6 +220,16 @@ export class Signal {
 
   canonicalNumber(): number {
     return this.XlkgNo ? this.XlkgNo : this.StationNo;
+  }
+
+  /** C++ Signal::GetGKBrush: the color of the head lamp on the panel */
+  getGKBrush(): Brush {
+    const yellow = !!this.Selected && !!(this.HG || this.MiscG & SIGF_CO);
+    if (this.Coding === 2) return yellow ? gdiObjs.GKYellowBrush : gdiObjs.GKRedBrush;
+    else if (this.Coding === 1) return gdiObjs.GKOffBrush;
+    else if (!this.Selected) return gdiObjs.GKOffBrush;
+    else if (yellow) return gdiObjs.GKYellowBrush;
+    return gdiObjs.GKRedBrush;
   }
 
   invalidate(): void {
@@ -492,6 +508,64 @@ export class PanelSignal extends GraphicObject {
     return TypeId.SIGNAL;
   }
 
+  override drawNomenclature(): number {
+    return this.Sig ? this.Sig.XlkgNo : 0;
+  }
+
+  /** C++ PanelSignal::Display */
+  override display(dc: DC): void {
+    const ra = Math.trunc(this.Radius * nxgoState.NXGO_Scale);
+    const rLeft = this.sc_x - ra;
+    const rRight = this.sc_x + ra;
+    const rTop = this.sc_y - ra;
+    const rBottom = this.sc_y + ra;
+
+    if (!this.Sig.Fleeted) this.drawFleeting(dc, false);
+    dc.selectObject(getStockObject("NULL_PEN"));
+    dc.selectObject(this.Sig.getGKBrush());
+    dc.ellipse(rLeft, rTop, rRight, rBottom);
+
+    const { costheta, sintheta } = this.getAngles();
+    const fxc = this.wp_x;
+    const fyc = this.wp_y;
+    const p = this.getDispPoints();
+    /* costheta * Radius: float * long is a float product */
+    const x0 = Math.trunc(fxc - f32(costheta * this.Radius));
+    const y0 = Math.trunc(fyc - f32(sintheta * this.Radius));
+    dc.selectObject(gdiObjs.SigPen);
+    dc.moveTo(WPXtoSC(x0), WPYtoSC(y0));
+    dc.lineTo(WPXtoSC(p.x2), WPYtoSC(p.y2));
+    dc.moveTo(WPXtoSC(p.x1), WPYtoSC(p.y1));
+    dc.lineTo(WPXtoSC(p.x3), WPYtoSC(p.y3));
+    if (this.Sig.Fleeted) this.drawFleeting(dc, true);
+  }
+
+  /** C++ PanelSignal::DrawFleeting (the little triangle behind a fleeted signal) */
+  drawFleeting(dc: DC, enabled: boolean): void {
+    const { costheta, sintheta } = this.getAngles();
+    const R = this.Radius;
+    /* long - float: the subtraction itself is done in float */
+    const fx0 = f32(this.wp_x - f32(costheta * R));
+    const fy0 = f32(this.wp_y - f32(sintheta * R));
+    const x0 = WPXtoSC(Math.trunc(fx0));
+    const y0 = WPYtoSC(Math.trunc(fy0));
+    /* costheta * Radius * FRAC: (float*long)=float, then * double constant */
+    const dx4 = fx0 - f32(costheta * R) * FLEETING_TRIANGLE_HEIGHT_FRAC;
+    const dy4 = fy0 - f32(sintheta * R) * FLEETING_TRIANGLE_HEIGHT_FRAC;
+    const fb = (R * FLEETING_TRIANGLE_BASE_FRAC) / 2.0;
+    const x1 = WPXtoSC(Math.trunc(dx4 + sintheta * fb));
+    const y1 = WPYtoSC(Math.trunc(dy4 - costheta * fb));
+    const x2 = WPXtoSC(Math.trunc(dx4 - sintheta * fb));
+    const y2 = WPYtoSC(Math.trunc(dy4 + costheta * fb));
+    dc.selectObject(getStockObject("NULL_PEN"));
+    dc.selectObject(enabled ? gdiObjs.GKGreenBrush : getStockObject("BLACK_BRUSH"));
+    dc.polygon([
+      { x: x0, y: y0 },
+      { x: x1, y: y1 },
+      { x: x2, y: y2 },
+    ]);
+  }
+
   override isNomenclature(id: number): boolean {
     /* +++++ gonna need a lot of work with symbolic object names */
     return this.Sig.XlkgNo === id || (this.Sig.StationNo !== 0 && this.Sig.StationNo === id);
@@ -600,6 +674,9 @@ export class PanelSignal extends GraphicObject {
 
 /* ------------------------------------------------------------------------------------------ */
 
+const FLEETING_TRIANGLE_BASE_FRAC = 0.75;
+const FLEETING_TRIANGLE_HEIGHT_FRAC = 0.75;
+
 const STOP_CODE_CLICKS_MAX = 6;
 
 export class Stop extends GraphicObject {
@@ -626,6 +703,31 @@ export class Stop extends GraphicObject {
 
   override typeID(): TypeId {
     return TypeId.STOP;
+  }
+
+  override drawNomenclature(): number {
+    return this.Sig ? this.Sig.XlkgNo : 0;
+  }
+
+  /** C++ Stop::Display (v2/xstop.cpp) */
+  override display(dc: DC): void {
+    const policy = stopState.ShowStopPolicy;
+    if (policy === SHOW_STOPS_NEVER && !stopState.StopsChanging) return;
+
+    let brush: Brush | ReturnType<typeof getStockObject> = this.Tripping ? gdiObjs.GKRedBrush : gdiObjs.GKYellowBrush;
+
+    if (policy === SHOW_STOPS_NEVER) brush = getStockObject("BLACK_BRUSH");
+    else if (this.coding) {
+      if (this.code_clicks & 1) brush = getStockObject("BLACK_BRUSH");
+    } else if (policy === SHOW_STOPS_RED && !this.Tripping) brush = getStockObject("BLACK_BRUSH");
+
+    dc.selectObject(gdiObjs.NullPen);
+    dc.selectObject(brush);
+    dc.polygon([
+      { x: WPXtoSC(this.x1), y: WPYtoSC(this.y1) },
+      { x: WPXtoSC(this.x2), y: WPYtoSC(this.y2) },
+      { x: WPXtoSC(this.x3), y: WPYtoSC(this.y3) },
+    ]);
   }
   override isNomenclature(_n: number): boolean {
     return false;

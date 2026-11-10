@@ -12,6 +12,7 @@ GPLv3, like the original. See [PLAN.md](PLAN.md) for the overall plan and phases
   - `src/host.ts` — services the host must provide (message boxes, display refresh)
   - `src/layout/` — graphic-object registry (`nxgo.ts`), track topology (`xtgtrack.ts`: joints, segments, track circuits), signals/stops, turnouts, exit lights, switch keys, traffic levers, panel lights/switches, text (ports of `nxgo.cpp`, `v2/*.cpp`, `signal.cpp`, ...). No drawing; geometry is kept for the Phase 2 renderer.
   - `src/interlocking/` — `.trk` loader (`rdtrkcmn.ts`, `xtgload.ts`), MENU model, app lifecycle (`nxsys.ts`: `startUpNXSYS`, `getLayout`, `deInstallLayout`) and the demo-script runner (`demo.ts`)
+  - `src/render/` — the drawing contract (`dc.ts`), `paintLayout(dc, rect?)`, `RecordingDC`, nxdraw parse/replay, pens/brushes/fonts (`gdiobjects.ts`); every object's `display(dc)` lives with its class in `src/layout/`. Checked call-for-call against the C++ GDI streams in `tools/trace-harness/golden/draw/`.
   - `src/trace/nxtrace.ts` — the golden-trace runner (same output as `tools/trace-harness`)
 
 - `apps/nxsys/` — the browser app (Vite + React). `npm run dev` / `npm run build` at this level delegate to it;

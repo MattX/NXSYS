@@ -1,9 +1,10 @@
 /*
- * ExitLight — port of NXSYS/v2/xexlight.cpp (+ ExitLight::ProcessLoadComplete from rdtrkcmn.cpp).
- * Display() omitted. A renderer draws, for a Lit/RedFlash/Blacking exit light, the line from
- * (wp_x+limits) along the segment end described by Seg/EndIndex, length 2*Track_Seg_Len (see reposition()).
+ * ExitLight — port of NXSYS/v2/xexlight.cpp (+ ExitLight::ProcessLoadComplete from rdtrkcmn.cpp),
+ * including Display() (DrawBlack is a Windows-only repaint hack and is not ported).
  */
-import { GraphicObject, TypeId } from "./nxgo.js";
+import { GraphicObject, TypeId, nxgoState } from "./nxgo.js";
+import type { DC, Pen } from "../render/dc.js";
+import { gdiObjs } from "../render/gdiobjects.js";
 import { TSEX, gdi } from "./geometry.js";
 import type { TrackSeg } from "./xtgtrack.js";
 import { createAndSetReporter, createQuislingRelay } from "../relay/rlyapi.js";
@@ -52,6 +53,43 @@ export class ExitLight extends GraphicObject {
     this.wp_limits.right = Math.trunc(Math.max(wpx1, wpx2) - this.wp_x + del);
     this.wp_limits.bottom = Math.trunc(Math.max(wpy1, wpy2) - this.wp_y + del);
     this.computeVisibleLast();
+  }
+
+  override drawNomenclature(): number {
+    return this.XlkgNo;
+  }
+
+  /** C++ ExitLight::Display */
+  override display(dc: DC): void {
+    if (!this.Lit && !this.Selected && !this.RedFlash && !this.Blacking) return;
+
+    const Seg = this.Seg;
+    const p1 = Seg.getGraphicsCoords(0);
+    const p2 = Seg.getGraphicsCoords(1);
+    let scx1 = p1.x;
+    let scy1 = p1.y;
+    let scx2 = p2.x;
+    let scy2 = p2.y;
+    const delx = scx2 - scx1;
+    const dely = scy2 - scy1;
+    const len = Math.sqrt(delx * delx + dely * dely); /* yay Pythagoras! */
+    const ulen = 2 * gdi.Track_Seg_Len * nxgoState.NXGO_Scale;
+    if (ulen < len) {
+      if (this.EndIndex === TSEX.E0) {
+        scx2 = Math.trunc(scx1 + ulen * Seg.CosTheta);
+        scy2 = Math.trunc(scy1 + ulen * Seg.SinTheta);
+      } else {
+        scx1 = Math.trunc(scx2 - ulen * Seg.CosTheta);
+        scy1 = Math.trunc(scy2 - ulen * Seg.SinTheta);
+      }
+    }
+    let pen: Pen;
+    if (this.RedFlash) pen = gdiObjs.RedExitLightPen;
+    else if (this.Blacking) pen = gdiObjs.BlackExitLightPen;
+    else pen = gdiObjs.ExitLightPen;
+    dc.selectObject(pen);
+    dc.moveTo(scx1, scy1);
+    dc.lineTo(scx2, scy2);
   }
 
   off(): void {

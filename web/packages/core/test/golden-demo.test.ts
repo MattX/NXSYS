@@ -11,6 +11,7 @@ const demos: [string, string][] = [
   ["script-irt240", "tools/trace-harness/scripts/irt240.xdo"],
   ["script-islington", "tools/trace-harness/scripts/islington.xdo"],
   ["script-myrtle-routes", "tools/trace-harness/scripts/myrtle-routes.xdo"],
+  ["script-myrtle-occupy", "tools/trace-harness/scripts/myrtle-occupy.xdo"],
   ["script-progman", "tools/trace-harness/scripts/progman.xdo"],
 ];
 

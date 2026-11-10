@@ -18,12 +18,15 @@ import {
   WM_LBUTTONDOWN,
   WM_NXGO_RBUTTONCONTROL,
   WM_RBUTTONDOWN,
+  nxgoState,
   WPXtoSC,
   WPYtoSC,
 } from "./nxgo.js";
 import { CONST_PI, Glb, TSAX, TSEX, f32, gdi } from "./geometry.js";
 import type { Turnout } from "./turnout.js";
 import { host } from "../host.js";
+import type { DC, Pen } from "../render/dc.js";
+import { gdiObjs } from "../render/gdiobjects.js";
 import { reportToRelay } from "../relay/relay.js";
 import type { ExitLight } from "./exlight.js";
 import type { Signal } from "./signal.js";
@@ -330,10 +333,68 @@ export class TrackSeg extends GraphicObject {
     let x = WPXtoSC(this.Ends[ex].wpx);
     let y = WPYtoSC(this.Ends[ex].wpy);
     if (this.Ends[ex].insulatedP()) {
-      x += roundSigned(si * this.CosTheta) * flip;
-      y += roundSigned(si * this.SinTheta) * flip;
+      /* int * float is a float product */
+      x += roundSigned(f32(si * this.CosTheta)) * flip;
+      y += roundSigned(f32(si * this.SinTheta)) * flip;
     }
     return { x, y };
+  }
+
+  override drawNomenclature(): number {
+    return this.TCNO;
+  }
+
+  /** C++ TrackSeg::Display */
+  override display(dc: DC): void {
+    /* figure out correct state from track sec and containing switch */
+    this.displayInState(dc, 0);
+  }
+
+  /** C++ TrackSeg::DisplayInState */
+  displayInState(dc: DC, _control: number): void {
+    const p1 = this.getGraphicsCoords(0);
+    const p2 = this.getGraphicsCoords(1);
+    const scx1 = p1.x;
+    const scy1 = p1.y;
+    const scx2 = p2.x;
+    const scy2 = p2.y;
+
+    dc.selectObject(gdiObjs.TrackPen);
+    dc.moveTo(scx1, scy1);
+    dc.lineTo(scx2, scy2);
+
+    let pen: Pen | null;
+    if (!this.Routed || !this.Circuit) pen = null;
+    else if (this.Circuit.Occupied) pen = gdiObjs.TrackOccupiedPen;
+    else if (this.Circuit.Routed) pen = gdiObjs.TrackRoutedPen;
+    else if (this.OwningTurnout && this.OwningTurnout.Thrown) pen = gdiObjs.TrackDftPenThrown;
+    else pen = null;
+
+    if (pen) {
+      /* Track_Seg_Len*CosTheta is int*float = float; then times the double scale */
+      const scale = nxgoState.NXGO_Scale;
+      const incXSegLen = f32(gdi.Track_Seg_Len * this.CosTheta) * scale;
+      const incYSegLen = f32(gdi.Track_Seg_Len * this.SinTheta) * scale;
+      const incXBlipLen = f32(fBlipLength * this.CosTheta) * scale;
+      const incYBlipLen = f32(fBlipLength * this.SinTheta) * scale;
+
+      dc.selectObject(pen);
+      let xf = scx1 + incXBlipLen;
+      let yf = scy1 + incYBlipLen;
+      for (let step = 0; step < this.GraphicBlips; step++) {
+        const ixf = Math.trunc(xf + 0.5);
+        const iyf = Math.trunc(yf + 0.5);
+        const ixdest = Math.trunc(xf + incXBlipLen + 0.5);
+        const iydest = Math.trunc(yf + incYBlipLen + 0.5);
+        dc.moveTo(ixf, iyf);
+        dc.lineTo(ixdest, iydest);
+        xf += incXSegLen;
+        yf += incYSegLen;
+      }
+    }
+
+    if (this.Ends[0].ExLight) this.Ends[0].ExLight.display(dc);
+    if (this.Ends[1].ExLight) this.Ends[1].ExLight.display(dc);
   }
 
   /**

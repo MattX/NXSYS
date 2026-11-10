@@ -179,7 +179,11 @@ bool TrackJoint::IsNomenclature(IJID x) {return Nomenclature == x;}
 
 void TrackJoint::PositionLabel() {
 
+#if NX_HEADLESS
+    JointOrganizationData jod[3]{};   /* C++ reads jod[2] uninitialised in some cases; define it as zeros */
+#else
     JointOrganizationData jod[3];
+#endif
     if (Lab && (Nomenclature > 10000)) {
         Lab->SetText("");
         Lab->Invalidate();

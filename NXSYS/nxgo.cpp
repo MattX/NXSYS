@@ -46,6 +46,9 @@ static GraphicObject *MouseUpObject = NULL;
 static WPRECT LRect = {0, 0, 0, 0};
 
 static void GetScrollSlops (WP_cord& xslop, WP_cord&yslop);
+#if NX_HEADLESS
+void NXHeadlessDrawObject(GraphicObject* g);
+#endif
 
 int GraphicObjectCount() {
     return (int)AllObjects.size();
@@ -212,6 +215,9 @@ void DisplayVisibleObjectsRect (HDC dc, RECT &ur) {
             continue;
         if (ur.bottom < g->sc_limits.top)
             continue;
+#if NX_HEADLESS
+        NXHeadlessDrawObject(g);   /* trace harness: OBJ marker in the nxdraw record */
+#endif
         g->Display(dc);
     }
 }

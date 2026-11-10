@@ -13,6 +13,10 @@
  * A .trk file is loaded at sim time 0 and then the clock runs `settle` ms (default 20000);
  * a .xdo file is run as a demo until it finishes, then `settle` more ms. `until` (absolute ms)
  * overrides both stop times.
+ *
+ * Drawing (C++ `--draw-at MS[,MS...] --draw-dir DIR`): at each requested sim time the whole panel
+ * is repainted (render/index.ts recordPaint) and handed to `onDraw(ms, text)`; the CLI writes it
+ * to <DIR>/<basename>@<ms>.nxdraw. Painting changes nothing in the trace output.
  */
 import { setLispBarfHandler, getLispBarfString } from "../lisp/barf.js";
 import { printSexpr } from "../lisp/printer.js";
@@ -23,12 +27,18 @@ import { AppAbort, host } from "../host.js";
 import { getLayout, startUpNXSYS } from "../interlocking/nxsys.js";
 import { loadHooks, setFileReader, type FileReader } from "../interlocking/rdtrkcmn.js";
 import { demo, demoActive, demoUI, resetDemo } from "../interlocking/demo.js";
+import { recordPaint, setupPanelViewport } from "../render/index.js";
+import type { Rect } from "../render/dc.js";
 
 export interface NxtraceOptions {
   /** ms to keep running after load / after the demo ends (default 20000) */
   settle?: number;
   /** absolute stop time in ms */
   until?: number;
+  /** sim times (ms) at which to repaint the panel */
+  drawAt?: number[];
+  /** receives each paint: the sim time and the nxdraw text (header names the file's basename) */
+  onDraw?: (ms: number, text: string) => void;
 }
 
 const baseName = (p: string): string => p.slice(p.lastIndexOf("/") + 1);
@@ -45,6 +55,8 @@ export function runNxtrace(
 ): number {
   const settle = opts.settle ?? 20000;
   const until = opts.until ?? -1;
+  const drawTimes = [...(opts.drawAt ?? [])].sort((a, b) => a - b);
+  let nextDraw = 0;
   const base = baseName(file);
   const dot = base.lastIndexOf(".");
   const ext = dot > 0 ? base.slice(dot).toLowerCase() : "";
@@ -56,6 +68,20 @@ export function runNxtrace(
 
   const now = (): number => scheduler.now;
   const countRelays = (): number => allRelaySyms().filter((r) => r.relay !== null).length;
+
+  const paint = (ms: number): void => {
+    const panelRect: Rect = setupPanelViewport();
+    opts.onDraw?.(ms, recordPaint(base, ms, panelRect));
+  };
+  /** run the clock to t, painting at each requested draw time <= t on the way */
+  const runWithDraws = (t: number): void => {
+    while (nextDraw < drawTimes.length && drawTimes[nextDraw] <= t) {
+      const d = drawTimes[nextDraw++];
+      scheduler.runUntil(d);
+      paint(d);
+    }
+    scheduler.runUntil(t);
+  };
 
   loadHooks.beforeReadLayout = (fname) => emit(`@${now()} LOAD ${baseName(fname)}`);
   loadHooks.afterReadLayout = (ok, fname) => {
@@ -81,12 +107,23 @@ export function runNxtrace(
     } else {
       demo(file);
       const limit = until >= 0 ? until : 0x7fffffff;
-      while (demoActive() && scheduler.step(limit)) {
-        /* step the clock until the demo finishes */
+      /* step the clock until the demo finishes (painting at the requested times on the way) */
+      while (demoActive()) {
+        const nd = nextDraw < drawTimes.length ? drawTimes[nextDraw] : 0x7fffffff;
+        if (scheduler.step(Math.min(limit, nd))) continue;
+        if (nextDraw < drawTimes.length && nd <= limit) {
+          scheduler.runUntil(nd); /* idle until the draw time */
+          paint(nd);
+          nextDraw++;
+          continue;
+        }
+        break;
       }
       stop = until >= 0 ? until : now() + settle;
     }
-    scheduler.runUntil(stop);
+    runWithDraws(stop);
+    for (; nextDraw < drawTimes.length; nextDraw++)
+      console.error(`nxtrace: draw time ${drawTimes[nextDraw]} is after the end of the run (${stop}); skipped`);
     emit(`@${now()} END`);
 
     const syms = allRelaySyms().filter((r) => r.relay !== null);

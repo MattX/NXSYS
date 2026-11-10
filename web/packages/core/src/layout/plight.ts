@@ -1,9 +1,10 @@
 /*
  * PanelLight (panel indicator lamp with colored aspects). Port of NXSYS/plight.cpp +
- * plight_apponly.cpp. Painting omitted; `activeBrushColor()` tells a renderer what to draw
- * (the aspect's color letter, or "off").
+ * plight_apponly.cpp, including Display()/Paint().
  */
-import { GraphicObject, TypeId } from "./nxgo.js";
+import { GraphicObject, TypeId, nxgoState } from "./nxgo.js";
+import { getStockObject, type Brush, type DC } from "../render/dc.js";
+import { gdiObjs } from "../render/gdiobjects.js";
 import { createAndSetReporter } from "../relay/rlyapi.js";
 import type { Relay } from "../relay/relay.js";
 
@@ -36,6 +37,22 @@ export class PanelLightAspect {
         return "white";
       default:
         return "off";
+    }
+  }
+
+  /** The GDI brush chosen at construction in C++ (BrushesByColorLetter, else GKOffBrush). */
+  gdiBrush(): Brush {
+    switch (this.colorName) {
+      case "R":
+        return gdiObjs.GKRedBrush;
+      case "G":
+        return gdiObjs.GKGreenBrush;
+      case "Y":
+        return gdiObjs.GKYellowBrush;
+      case "W":
+        return gdiObjs.GKWhiteBrush;
+      default:
+        return gdiObjs.GKOffBrush;
     }
   }
 
@@ -83,6 +100,29 @@ export class PanelLight extends GraphicObject {
 
   override typeID(): TypeId {
     return TypeId.PANELLIGHT;
+  }
+
+  override drawNomenclature(): number {
+    return this.XlkgNo;
+  }
+
+  /** C++ PanelLight::Display */
+  override display(hdc: DC): void {
+    for (const aspect of this.Aspects)
+      if (aspect.active) {
+        this.paint(hdc, aspect.gdiBrush());
+        return;
+      }
+    /* none selected, draw off-state grey */
+    this.paint(hdc, gdiObjs.GKOffBrush);
+  }
+
+  /** C++ PanelLight::Paint */
+  paint(hdc: DC, brush: Brush): void {
+    const rad = Math.trunc(this.Radius * nxgoState.NXGO_Scale + 0.8);
+    hdc.selectObject(getStockObject("NULL_PEN"));
+    hdc.selectObject(brush);
+    hdc.ellipse(this.sc_x - rad, this.sc_y - rad, this.sc_x + rad, this.sc_y + rad);
   }
   override isNomenclature(id: number): boolean {
     return this.XlkgNo === id;

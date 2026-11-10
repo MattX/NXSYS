@@ -57,6 +57,8 @@ export interface WPPoint {
   y: number;
 }
 
+import { DT_LEFT, DT_NOCLIP, DT_SINGLELINE, DT_TOP, type DC } from "../render/dc.js";
+
 const newRect = (): Rect => ({ left: 0, top: 0, right: 0, bottom: 0 });
 
 /* ---- host hooks ---- */
@@ -177,6 +179,14 @@ export abstract class GraphicObject {
     nxgoState.NXGOHitX = x;
     nxgoState.NXGOHitY = y;
     this.hit(message);
+  }
+
+  /** C++ virtual Display(HDC): draw through the DC interface only. */
+  display(_dc: DC): void {}
+
+  /** "Nomenclature" printed in the OBJ marker of a recorded paint (0 for objects without one). */
+  drawNomenclature(): number {
+    return 0;
   }
 
   /** NXSYSMac semantics: always visible (the scroll view does the clipping); sc coords recomputed. */
@@ -313,6 +323,10 @@ export class NXGOLabel extends GraphicObject {
   override typeID(): TypeId {
     return TypeId.NONE; /* NXGOLabel does not override TypeID */
   }
+  override display(dc: DC): void {
+    /* at < .8 resolution, don't draw */
+    if (nxgoGetDisplayScale() >= 0.8) dc.drawText(this.s, this.sc_limits, DT_TOP | DT_LEFT | DT_SINGLELINE | DT_NOCLIP);
+  }
   override select(): void {} /* disallow selection */
   override mouseSensitive(): boolean {
     return false;
@@ -348,6 +362,26 @@ export function computeVisibleObjects(view: WPRect): void {
 
 export function computeVisibleObjectsLast(): void {
   computeVisibleObjects(viewport);
+}
+
+/** C++ DisplayVisibleObjects */
+export function displayVisibleObjects(dc: DC): void {
+  for (const o of visibleObjects) o.display(dc);
+}
+
+/**
+ * C++ DisplayVisibleObjectsRect (the Mac paint path). `dc.beginObject` (optional) is called before
+ * each object, standing in for the OBJ hook of the C++ trace harness.
+ */
+export function displayVisibleObjectsRect(dc: DC, ur: Rect): void {
+  for (const g of visibleObjects) {
+    if (ur.left > g.sc_limits.right) continue;
+    if (ur.right < g.sc_limits.left) continue;
+    if (ur.top > g.sc_limits.bottom) continue;
+    if (ur.bottom < g.sc_limits.top) continue;
+    dc.beginObject?.(g.typeID(), g.drawNomenclature());
+    g.display(dc);
+  }
 }
 
 export function computeWindowPos(): void {

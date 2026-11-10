@@ -91,6 +91,13 @@ export interface DC {
   setBkColor(c: ColorRef): void;
   setBkMode(mode: number): void;
   getBkMode(): number;
+  /**
+   * OPTIONAL (additive): called by displayVisibleObjectsRect() before each GraphicObject's
+   * Display(), with the object's TypeId (-1 for NXGOLabel) and its "nomenclature" (signal /
+   * switch / lever number, track circuit number, ... or 0). RecordingDC turns it into an OBJ
+   * line; a canvas backend can ignore it (or use it for debugging).
+   */
+  beginObject?(typeId: number, nomenclature: number): void;
 }
 
 /*
@@ -112,4 +119,11 @@ export interface DC {
  *   DRAWTEXT l t r b <flags> "<text>"              (non-CALCRECT calls only)
  *   TEXTCOLOR <rrggbb> | BKCOLOR <rrggbb> | BKMODE <n>
  *   END
+ *
+ * Details fixed by the C++ recorder (tools/trace-harness/src/DrawRecorder.cpp):
+ *   - PEN style is the decimal PS_ value (PS_SOLID = 131073); sizes are device pixels.
+ *   - strings escape only \\ and \" plus every char < 0x20 or >= 0x7f as \u00xx (lowercase hex).
+ *   - VIEW scale is C "%g" (1, 0.5, 1.25, ...).
+ *   - every paint starts with a fresh DC: no pen, brush or font selected, then
+ *     TEXTCOLOR ffffff / BKMODE 32768 (paintLayout does this itself).
  */

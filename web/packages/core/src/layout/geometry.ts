@@ -5,6 +5,8 @@
  * kinematics constants of traincmn.cpp / traincfg.h (the trains themselves are Phase 4).
  */
 
+import { initGdiObjects } from "../render/gdiobjects.js";
+
 export const CONST_PI = 3.141592653589793238462643383;
 export const CONST_2PI = 2.0 * CONST_PI;
 export const CONST_PI_OVER_2 = CONST_PI / 2.0;
@@ -60,7 +62,7 @@ export function setTrackGeometryDefaults(): void {
   computeHorizontalScaling(DEFAULT_SIM_FEET_PER_SCREEN);
 }
 
-/** The non-GDI half of C++ InitTrackGDI(mww, mwh). Integer division as in C. */
+/** C++ InitTrackGDI(mww, mwh): geometry units (integer division as in C) and the pens/brushes/fonts (render/gdiobjects.ts). */
 export function initTrackGDI(mww: number, mwh: number): void {
   gdi.MainWindowWidth = mww;
   gdi.GU1 = Math.trunc(mwh / 300);
@@ -77,6 +79,7 @@ export function initTrackGDI(mww: number, mwh: number): void {
   gdi.RWXO = Math.trunc(mwh / 24);
   setTrackGeometryDefaults();
   gdi.SectionInterstice = Math.trunc(mwh / 400);
+  initGdiObjects(mww, mwh);
 }
 
 /* ---- train kinematics defaults (traincmn.cpp; trains themselves are Phase 4) ---- */

@@ -29,6 +29,22 @@ Load time is sim time 0 (loading does not advance the clock).
   Failed load exits 2. FatalAppExit exits 4.
 - `src/main.cpp`: driver.
 
+## Drawing: nxdraw recordings (`--draw-at MS[,MS...] --draw-dir DIR`)
+`nxtrace --draw-at 2500,5000 --draw-dir D file` additionally repaints the whole panel at those sim times (clock is run to the
+time first; times after the end of the run are skipped with a warning) and writes `D/<basename>@<ms>.nxdraw`. Stdout (the trace) is unchanged.
+Format: web/packages/core/src/render/dc.ts. `src/DrawRecorder.cpp` is the GDI layer (replaces the old no-op stubs): it records only
+between DrawRecorder_Begin/End, prints GDI objects by content (pens/brushes via `RetrieveGDIWrapperInfo`, fonts via a Mac-style
+LOGFONT table, stock objects 1001..1005 as `STOCK <NAME>`), never records DT_CALCRECT (fake metrics 7 px/char x 14 kept), and keeps
+GetTextColor/GetBkMode state. `OBJ <typeid> <nomenclature>` is printed from the per-object dispatch hook (nomenclature: signal/stop/exit light/
+switch key/lever/light/panel switch XlkgNo, track circuit number for track segs, 0 otherwise; labels are typeid -1).
+Paint path = MainView.mm drawRect for a dirty rect covering the whole view: fresh DC, `SetTextColor(0xFFFFFF)`, `SetBkMode(TRANSPARENT)`,
+`REDISPLAYING=true`, `DisplayVisibleObjectsRect`. Viewport: WP origin (0,0) (the Mac app never moves it; VIEW-ORIGIN is only a scroll
+position), scale 1.0, extent `NXGO_ComputeTrueLayoutDimensions()` (right/bottom; what MacAssertTrueLayoutDims sizes the view to);
+`NXGO_SetViewportDims(w,h)` is called before each paint; paint rect = (0,0,w,h) = `VIEW 0 0 w h 1`.
+Goldens: `golden/draw/*.nxdraw` + `golden/draw/MANIFEST` (`<source path>\t<times>`): load-* one paint at 20000; demos/scripts every 2500 ms plus the END time.
+`make-golden.sh` checks that painting does not change the trace and that two runs are identical. `render-png.cjs` is a throwaway Canvas2D replay
+(Playwright) for eyeballing; output goes to the gitignored `png/`.
+
 ## Patches to core sources (all `#if NX_HEADLESS`)
 1. NXSYS/RelayLispSubstrate.cpp: side vector `RelaySymInsertionOrder` appended in `intern_rlysym`, cleared in `ClearRelayMaps`;
    `map_relay_syms` (iterates a snapshot copy) and `map_relay_syms_for_validate` use it instead of the unordered_map.
@@ -37,7 +53,12 @@ Load time is sim time 0 (loading does not advance the clock).
    MOUSERIGHT/FLEET inner recursion is not printed twice), plus `NXHeadlessDemoActive()` (is the demo State alive).
 3. NXSYS/traindcl.h: `Train::Occupied` (pointer-keyed `std::set<TrackSeg*>`) becomes an insertion-ordered vector set.
    `~Train` iterates it calling DecrementTrainOccupation (relay-visible); pointer order is address dependent.
-Files originally CRLF (demo.cpp, traindcl.h) keep CRLF.
+4. NXSYS/nxgo.cpp: `NXHeadlessDrawObject(g)` (DrawRecorder.cpp) is called before each `g->Display(dc)` in DisplayVisibleObjectsRect (OBJ marker).
+5. NXSYS/trkgdi.cpp: GetStockObject returns the 1001..1005 moniker itself and NullPen = NULL_PEN, so stock objects stay identifiable
+   (on the Mac they map to ordinary table entries; NULL_PEN is identified by pointer compare in Polygon, so the effect is the same).
+6. NXSYS/v2/joint.cpp: `JointOrganizationData jod[3]{}` in TrackJoint::PositionLabel. The C++ reads jod[2] uninitialised when two signals sit at a
+   2-branch joint (affects label placement only); defined as zeros, which is what the TS port computes.
+Files originally CRLF (demo.cpp, traindcl.h, nxgo.cpp, trkgdi.cpp, joint.cpp) keep CRLF.
 
 ## Nondeterminism audit (no rand/srand/time/chrono affects relays)
 - rand()/srand()/random: none in core. time()/ctime/localtime only in AppBuildSignature.h and StatusReport.cpp (UI text). Real GetTickCount

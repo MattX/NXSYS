@@ -1,12 +1,17 @@
 /*
  * SwitchKey — the N/R switch lever on the panel. Port of NXSYS/swkey.cpp (non-TLEDIT).
- * Display omitted; metrics for a renderer are in swkeyMetrics (set by initSwitchKeyData).
+ * Includes Display(); metrics are in swkeyMetrics (set by initSwitchKeyData).
  */
 import { GraphicObject, TypeId, WM_NXGO_RBUTTONCONTROL, WM_RBUTTONDOWN, mapGraphicObjectsOfType, nxgoState, textMetrics } from "./nxgo.js";
 import { gdi } from "./geometry.js";
+import { DT_CENTER, DT_NOCLIP, DT_SINGLELINE, DT_VCENTER, RGB, TRANSPARENT, getStockObject, type DC, type Rect } from "../render/dc.js";
+import { gdiObjs } from "../render/gdiobjects.js";
 import { TN_AUXKEY_FORCE_NORMAL, TN_AUXKEY_FORCE_REVERSE, Turnout } from "./turnout.js";
 import { reportToRelay, type Relay } from "../relay/relay.js";
 import { relayState, setReporterIfExists } from "../relay/rlyapi.js";
+
+const LIGHT_LEGEND_DT_OPTS = DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOCLIP;
+const NUM_DT_OPTS = DT_CENTER | DT_SINGLELINE | DT_NOCLIP;
 
 const Margin = 3;
 const BottomMargin = 2;
@@ -75,6 +80,62 @@ export class SwitchKey extends GraphicObject {
   setXlkgNo(xno: number): void {
     this.XlkgNo = xno;
     this.NumStr = String(xno);
+  }
+
+  override drawNomenclature(): number {
+    return this.XlkgNo;
+  }
+
+  /** C++ SwitchKey::Display */
+  override display(hdc: DC): void {
+    const m = swkeyMetrics;
+    let width = m.Width;
+    let height = m.Height;
+    const scale = nxgoState.NXGO_Scale;
+    if (scale < 1.0) {
+      width = Math.trunc(width * scale);
+      height = Math.trunc(height * scale);
+    }
+    const r: Rect = { left: this.sc_x, right: this.sc_x + width, top: this.sc_y, bottom: this.sc_y + height };
+    const rr: Rect = { ...r };
+    const rn: Rect = { ...r };
+    rn.bottom = rr.top = this.sc_y + Math.trunc(height / 2);
+
+    const dftbrush = gdiObjs.GKOffBrush;
+    hdc.selectObject(getStockObject("NULL_PEN"));
+    if (!this.Normal && !this.Reverse) {
+      hdc.selectObject(dftbrush);
+      hdc.rectangle(r.left, r.top, r.right, r.bottom);
+    } else {
+      hdc.selectObject(this.Normal ? gdiObjs.GKGreenBrush : dftbrush);
+      hdc.rectangle(rn.left, rn.top, rn.right, rn.bottom);
+      hdc.selectObject(this.Reverse ? gdiObjs.GKYellowBrush : dftbrush);
+      hdc.rectangle(rr.left, rr.top, rr.right, rr.bottom);
+    }
+    const tcold = hdc.getTextColor();
+    const bm = hdc.getBkMode();
+    hdc.setBkMode(TRANSPARENT);
+    hdc.setTextColor(RGB(0, 0, 0));
+    hdc.drawText("N", rn, LIGHT_LEGEND_DT_OPTS);
+    hdc.drawText("R", rr, LIGHT_LEGEND_DT_OPTS);
+    hdc.setTextColor(tcold);
+    hdc.setBkMode(bm);
+    hdc.selectObject(getStockObject("BLACK_PEN"));
+    hdc.moveTo(rn.left, rn.top);
+    hdc.lineTo(rn.right, rn.top);
+    hdc.selectObject(gdiObjs.GKOffBrush);
+
+    const tr: Rect = { ...r };
+    tr.top = r.bottom + BottomMargin;
+    tr.bottom = tr.top + m.NumHeight;
+    hdc.drawText(this.NumStr, tr, NUM_DT_OPTS);
+
+    /* Lock light */
+    hdc.selectObject(this.LSState ? gdiObjs.GKOffBrush : gdiObjs.GKRedBrush);
+    const rad = Math.trunc(m.LKRadius * scale + 0.8);
+    const xcen = this.sc_x + Math.trunc(width / 2);
+    const ycen = this.sc_y - Math.trunc(m.LKOffset * scale + 0.8);
+    hdc.ellipse(xcen - rad, ycen - rad, xcen + rad, ycen + rad);
   }
 
   override typeID(): TypeId {
