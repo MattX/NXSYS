@@ -471,7 +471,7 @@ function logicHalter(state: boolean): void {
   if (state) {
     const ans = host().messageBox(
       'LOGIC HALT RELAY PICKED!\n"Yes" to take breakpoint, "No" to continue.',
-      "NXSYS Relay Simulation",
+      "NXSYS/Mac Relay Simulation",
       "yesno",
     );
     if (ans === "yes") {

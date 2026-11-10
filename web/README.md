@@ -10,6 +10,9 @@ GPLv3, like the original. See [PLAN.md](PLAN.md) for the overall plan and phases
   - `src/relay/` — relay logic engine (port of `relays.cpp`)
   - `src/clock/` — deterministic simulated-time scheduler and flashing "coders" (port of `NXSYSMac/NXTimers.mm`)
   - `src/host.ts` — services the host must provide (message boxes, display refresh)
+  - `src/layout/` — graphic-object registry (`nxgo.ts`), track topology (`xtgtrack.ts`: joints, segments, track circuits), signals/stops, turnouts, exit lights, switch keys, traffic levers, panel lights/switches, text (ports of `nxgo.cpp`, `v2/*.cpp`, `signal.cpp`, ...). No drawing; geometry is kept for the Phase 2 renderer.
+  - `src/interlocking/` — `.trk` loader (`rdtrkcmn.ts`, `xtgload.ts`), MENU model, app lifecycle (`nxsys.ts`: `startUpNXSYS`, `getLayout`, `deInstallLayout`) and the demo-script runner (`demo.ts`)
+  - `src/trace/nxtrace.ts` — the golden-trace runner (same output as `tools/trace-harness`)
 
 ## Develop
 
@@ -17,6 +20,7 @@ GPLv3, like the original. See [PLAN.md](PLAN.md) for the overall plan and phases
 npm install
 npm test
 npm run typecheck
+npx tsx packages/core/scripts/nxtrace.ts ../Interlockings/Myrtle/myrtle.trk   # print a trace (also .xdo demos)
 ```
 
 ## Fidelity
