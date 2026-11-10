@@ -3,10 +3,17 @@
   "private": true,
   "license": "GPL-3.0-only",
   "type": "module",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc -b packages/core"
+    "typecheck": "tsc -b packages/core",
+    "dev": "npm run dev -w @nxsys/app",
+    "build": "npm run build -w @nxsys/app",
+    "preview": "npm run preview -w @nxsys/app",
+    "e2e": "npm run e2e -w @nxsys/app"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

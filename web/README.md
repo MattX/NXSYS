@@ -14,6 +14,12 @@ GPLv3, like the original. See [PLAN.md](PLAN.md) for the overall plan and phases
   - `src/interlocking/` — `.trk` loader (`rdtrkcmn.ts`, `xtgload.ts`), MENU model, app lifecycle (`nxsys.ts`: `startUpNXSYS`, `getLayout`, `deInstallLayout`) and the demo-script runner (`demo.ts`)
   - `src/trace/nxtrace.ts` — the golden-trace runner (same output as `tools/trace-harness`)
 
+- `apps/nxsys/` — the browser app (Vite + React). `npm run dev` / `npm run build` at this level delegate to it;
+  `npm run e2e` runs headless-Chromium smoke tests against the built site. `scripts/copy-assets.mjs` copies
+  `Interlockings/`, `Documentation/`, `InterlockingLibrary.xml`, `Help.xml` into the (gitignored)
+  `apps/nxsys/public/data/` and writes a manifest, so nothing is duplicated in git. Output is a static site
+  with a relative base (GitHub Pages friendly).
+
 ## Develop
 
 ```bash
