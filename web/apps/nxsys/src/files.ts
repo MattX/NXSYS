@@ -157,6 +157,11 @@ async function prefetchIncludes(store: FileStore, path: string, seen = new Set<s
   }
 }
 
+/** Every demo script (.xdo) bundled with the app, whatever is loaded. */
+export function allLibraryDemos(): string[] {
+  return manifest.filter((f) => /\.xdo$/i.test(f)).sort();
+}
+
 /** Demo scripts (.xdo) bundled alongside a library interlocking. */
 export function demosInFolder(path: string): string[] {
   const dir = dirOf(path) + "/";

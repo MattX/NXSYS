@@ -27,7 +27,7 @@ import { dropAllSignals, implementShowStopPolicy, stopState, Signal } from "@nxs
 import { clearAllTrackSecs, findDemoHitCircuit } from "@nxsys/core/src/layout/xtgtrack";
 import { clearAllAuxLevers } from "@nxsys/core/src/layout/swkey";
 import { findDemoHitTurnout, normalAllSwitches } from "@nxsys/core/src/layout/turnout";
-import { allAbove, getLayout, startUpNXSYS } from "@nxsys/core/src/interlocking/nxsys";
+import { allAbove, getLayout, nxsysState, startUpNXSYS } from "@nxsys/core/src/interlocking/nxsys";
 import {
   bobbleRGPs,
   dropAllApproach,
@@ -45,6 +45,7 @@ import {
   FileStore,
   baseOf,
   demosInFolder,
+  allLibraryDemos,
   dirOf,
   filesFromDrop,
   filesFromInput,
@@ -146,11 +147,13 @@ class Engine {
   /* ---- init ---- */
   async init(): Promise<void> {
     setTextMetrics(textMetricsFn);
+    // As the Mac app does at launch, so a demo script's (load ...) works before any interlocking is open.
+    startUpNXSYS();
     this.installHooks();
     setFileReader((p) => this.files.read(p));
     try {
       const [library, helpIndex] = await Promise.all([loadLibrary(), loadHelpIndex()]);
-      this.set({ library, helpIndex });
+      this.set({ library, helpIndex, demos: allLibraryDemos() });
     } catch (e) {
       this.set({ errors: [`Cannot read the interlocking library: ${(e as Error).message}`] });
     }
@@ -219,6 +222,8 @@ class Engine {
     this.layoutSizeHook?.(d.right, d.bottom, origin);
     this.set({
       loaded: true,
+      // Also right when a demo script's (load ...) brought this interlocking in.
+      path: nxsysState.GlobalFilePathname ? normPath(nxsysState.GlobalFilePathname) : this.snap.path,
       title: loaderState.InterlockingName || "NX Interlocking",
       relayCount: this.countRelays(),
       autoAvailable: autoControlRelayExists(),
@@ -253,7 +258,11 @@ class Engine {
         loading: false,
         path,
         errors: this.loadErrors.slice(),
-        demos: opts.fromLibrary ? demosInFolder(path) : this.files.paths().filter((p) => /\.xdo$/i.test(p) && dirOf(p) === dirOf(path)),
+        // All bundled demos, plus any local scripts beside the loaded file. A demo (load ...)s its own interlocking.
+        demos: [
+          ...allLibraryDemos(),
+          ...this.files.paths().filter((p) => /\.xdo$/i.test(p) && dirOf(p) === dirOf(path) && !allLibraryDemos().includes(p)),
+        ],
       });
       if (opts.runDemo) this.runDemo(opts.runDemo);
       return true;
@@ -413,10 +422,14 @@ class Engine {
 
   /* ---- help / menus ---- */
   helpTexts(): { title: string; text: string }[] {
-    return helpRegistry.texts.map((h) => ({ title: h.title, text: h.text.replace(/\r/g, "") }));
+    return helpRegistry.texts
+      .filter((h) => !isFileUrl(h.text))
+      .map((h) => ({ title: menuTitle(h.title), text: h.text.replace(/\r/g, "") }));
   }
   helpUrls(): { title: string; url: string | null }[] {
-    return helpRegistry.urls;
+    // :HELP-TEXT entries with an "@page.html" third element register a file:// URL as their text.
+    const pages = helpRegistry.texts.filter((h) => isFileUrl(h.text)).map((h) => ({ title: menuTitle(h.title), url: h.text.trim() }));
+    return [...pages, ...helpRegistry.urls.map((u) => ({ ...u, title: menuTitle(u.title) }))];
   }
   dynMenus() {
     return dynMenusView();
@@ -425,6 +438,15 @@ class Engine {
   /** Resolve a help URL registered by an interlocking to something an iframe/link can open. */
   resolveHelpUrl(url: string): { href: string; external: boolean } {
     if (/^https?:/i.test(url)) return { href: url, external: true };
+    if (/^file:\/\//i.test(url)) {
+      // From :HELP-TEXT ("title" "..." "@page.html"): the loader already resolved it
+      // relative to the interlocking file, as the C++ does.
+      const p = normPath(url.slice(7));
+      if (/^(interlockings|documentation)\//i.test(p)) return { href: "data/" + p, external: false };
+      const t = this.files.read(p);
+      if (t !== null) return { href: URL.createObjectURL(new Blob([t], { type: "text/html" })), external: false };
+      return { href: "data/" + p, external: false };
+    }
     const p = normPath(url.replace(/^file:\/\//, ""));
     if (/^documentation\//i.test(p)) return { href: "data/" + p, external: false };
     const local = normPath(dirOf(this.snap.path) + "/" + p);
@@ -454,3 +476,12 @@ class Engine {
 }
 
 export const engine = new Engine();
+
+function isFileUrl(text: string): boolean {
+  return /^file:\/\//i.test(text.trim());
+}
+
+/** Strip Windows menu mnemonics ("&Interlocking" -> "Interlocking"; "&&" -> "&"). */
+function menuTitle(t: string): string {
+  return t.replace(/&(&?)/g, "$1");
+}

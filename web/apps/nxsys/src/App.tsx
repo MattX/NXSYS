@@ -119,9 +119,9 @@ export function App() {
     { label: "Relay query/trace/drafter — not yet ported (Phase 5)", disabled: true },
   ];
   const demoMenu: MenuItem[] = [
-    ...s.demos.map((d) => ({ label: d.slice(d.lastIndexOf("/") + 1), onClick: () => void engine.runLibraryDemo(d), disabled: off })),
+    ...s.demos.map((d) => ({ label: d.replace(/^Interlockings\//, ""), onClick: () => void engine.runLibraryDemo(d), disabled: s.loading })),
     ...(s.demos.length ? [{ separator: true, label: "" }] : []),
-    { label: "Run script file (.xdo)…", onClick: () => xdoRef.current?.click(), disabled: off },
+    { label: "Run script file (.xdo)…", onClick: () => xdoRef.current?.click(), disabled: s.loading },
     { label: "Stop demo", onClick: () => engine.stopDemo(), disabled: !s.demoRunning },
   ];
 

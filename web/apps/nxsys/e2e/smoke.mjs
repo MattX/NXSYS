@@ -123,6 +123,24 @@ try {
   s = await snap();
   check("local folder (Atlantic) loads via file input", /atlantic/i.test(s.title), s.title);
 
+  // regression: a bundled demo is offered and runs with no interlocking open; it loads its own
+  {
+    const fresh = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
+    fresh.on("dialog", (d) => d.dismiss());
+    await fresh.goto(`http://localhost:${PORT}/?i=none`);
+    await fresh.waitForFunction(() => window.__nxsys && window.__nxsys.getSnapshot().demos.length > 0, null, { timeout: 10000 });
+    const demos = await fresh.evaluate(() => window.__nxsys.getSnapshot().demos);
+    check("demo menu lists bundled scripts with nothing loaded", demos.some((d) => /Myrtle\.xdo$/.test(d)), demos.join(","));
+    await fresh.evaluate(() => window.__nxsys.runLibraryDemo("Interlockings/Myrtle/Myrtle.xdo"));
+    await fresh.waitForFunction(() => window.__nxsys.getSnapshot().loaded, null, { timeout: 10000 }).catch(() => {});
+    const fs = await fresh.evaluate(() => window.__nxsys.getSnapshot());
+    check("demo from a fresh app loads its interlocking", fs.loaded && /myrtle/i.test(fs.path), JSON.stringify({ loaded: fs.loaded, path: fs.path }));
+    // regression: :HELP-TEXT "@page.html" entries open the page, not the file:// string
+    const urls = await fresh.evaluate(() => window.__nxsys.helpUrls().map((u) => window.__nxsys.resolveHelpUrl(u.url).href));
+    check("interlocking HTML help resolves to the bundled page", urls.includes("data/Interlockings/Myrtle/myrtle.html"), urls.join(","));
+    await fresh.close();
+  }
+
   // contextmenu is suppressed on the canvas
   const prevented = await page.evaluate(() => {
     const e = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
