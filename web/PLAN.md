@@ -63,9 +63,9 @@ The fork stays **GPLv3** and keeps Bernard Greenberg's name and credit.
 | 0 | Web workspace scaffold; C++ headless trace harness | Golden traces for all 6 interlockings | done |
 | 1 | Core: reader, macros, relay engine, clock, interlocking loader | All 6 load; relay counts and traces match | done |
 | 2 | Read-only panel rendering | Panels visually match native | done |
-| 3 | Interaction: NX buttons, switch keys, signals, stops, traffic levers | Routes set/clear correctly | done (trains, relay tools, full-signal windows pending) |
+| 3 | Interaction: NX buttons, switch keys, signals, stops, traffic levers | Routes set/clear correctly | done |
 | 4 | Trains | Run through routes, trip stops, release locking | done |
-| 5 | Relay state/tracer/drafter, status report, demo scripts | Simulator feature parity | done except trains (Phase 4); Relay Index tool not ported |
+| 5 | Relay state/tracer/drafter, status report, demo scripts | Simulator feature parity | done (Relay Index cross-reference tool not ported) |
 | 6 | TLEdit on the web | Round-trips the bundled layouts |  |
 | 7 | Mobile/touch, shareable URLs, Worker | — |  |
 
