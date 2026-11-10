@@ -58,16 +58,16 @@ The fork stays **GPLv3** and keeps Bernard Greenberg's name and credit.
 
 ## Phases
 
-| # | Milestone | Exit criterion |
-|---|---|---|
-| 0 | Web workspace scaffold; C++ headless trace harness | Golden traces for all 6 interlockings |
-| 1 | Core: reader, macros, relay engine, clock, interlocking loader | All 6 load; relay counts and traces match |
-| 2 | Read-only panel rendering | Panels visually match native |
-| 3 | Interaction: NX buttons, switch keys, signals, stops, traffic levers | Routes set/clear correctly |
-| 4 | Trains | Run through routes, trip stops, release locking |
-| 5 | Relay state/tracer/drafter, status report, demo scripts | Simulator feature parity |
-| 6 | TLEdit on the web | Round-trips the bundled layouts |
-| 7 | Mobile/touch, shareable URLs, Worker | — |
+| # | Milestone | Exit criterion | Status |
+|---|---|---|---|
+| 0 | Web workspace scaffold; C++ headless trace harness | Golden traces for all 6 interlockings | done |
+| 1 | Core: reader, macros, relay engine, clock, interlocking loader | All 6 load; relay counts and traces match | done |
+| 2 | Read-only panel rendering | Panels visually match native | done |
+| 3 | Interaction: NX buttons, switch keys, signals, stops, traffic levers | Routes set/clear correctly | done (trains, relay tools, full-signal windows pending) |
+| 4 | Trains | Run through routes, trip stops, release locking |  |
+| 5 | Relay state/tracer/drafter, status report, demo scripts | Simulator feature parity |  |
+| 6 | TLEdit on the web | Round-trips the bundled layouts |  |
+| 7 | Mobile/touch, shareable URLs, Worker | — |  |
 
 Behavior changes from `Futures.md` (richer IJIDs, three-state relays) come **after** parity,
 so golden traces stay meaningful.
