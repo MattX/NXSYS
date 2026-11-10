@@ -59,7 +59,20 @@ private:
     double	LastTargetSpeed;
     long	Time;
     Signal*	NextSig;
+#if NX_HEADLESS
+    /* Pointer-ordered std::set iteration order (used by ~Train to release occupancy)
+       is address-dependent; keep insertion order instead. */
+    struct OccupiedSet {
+        std::vector<TrackSeg*> v;
+        size_t count(TrackSeg* p) const { return std::find(v.begin(), v.end(), p) != v.end() ? 1 : 0; }
+        void erase(TrackSeg* p) { v.erase(std::remove(v.begin(), v.end(), p), v.end()); }
+        void insert(TrackSeg* p) { if (!count(p)) v.push_back(p); }
+        std::vector<TrackSeg*>::iterator begin() { return v.begin(); }
+        std::vector<TrackSeg*>::iterator end() { return v.end(); }
+    } Occupied;
+#else
     std::set<TrackSeg*> Occupied;
+#endif
     double	X_Of_Next_Signal;
     
     bool    CODisplay;

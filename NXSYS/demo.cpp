@@ -232,8 +232,17 @@ static bool ProcessGOForm(TypeId type, Sexpr s, int mousecmd) {
     return false;
 }
 
+#if NX_HEADLESS
+void NXHeadlessDemoTrace(Sexpr s);   /* tools/trace-harness/src/main.cpp */
+bool NXHeadlessDemoActive() { return (bool)State; }
+#endif
+
 static bool ProcessForm (Sexpr s, int mousecmd = WM_LBUTTONDOWN) {
     /* return true = break interpret loop for either end or wait */
+#if NX_HEADLESS
+    if (mousecmd == WM_LBUTTONDOWN && s.type != Lisp::tNULL)  /* top-level forms only */
+        NXHeadlessDemoTrace(s);
+#endif
 
     if (s.type == Lisp::tNULL) {
         State.reset();

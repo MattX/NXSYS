@@ -1,0 +1,14 @@
+;; Demo script for the trace harness: throw two switches by hand, then set routes.
+;; Paths are relative to this file.
+(clicktime 200 200)
+(load "../../../Interlockings/irt240/irt.240tl.trk")
+(say 2000 "irt240: throw two switches by hand....")
+(mouseright switch 265 "")
+(mouseright switch 267 "")
+(say 6000 "Wait for the switches...")
+(say 1000 "Route 1: entrance 462, exit 364")
+(signal 462 "")
+(wait 500)
+(signal 364 "")
+(wait 14000)
+(say 2000 "Done.")

@@ -31,6 +31,13 @@ typedef bool BOOL;   // windows.h, don't need much more ... seems to work on Mac
  Rlysyms, not relays. */
 static std::unordered_map<long, std::unique_ptr<Rlysym>> RelayHashTable;
 
+#if NX_HEADLESS
+/* Headless trace harness: std::unordered_map iteration order is implementation-defined,
+   so remember relay symbols in insertion (interning) order and iterate that instead.
+   This is the canonical order the TS port mirrors. */
+static std::vector<Rlysym*> RelaySymInsertionOrder;
+#endif
+
 
 /* This is a vector of RelayTypes (AS, R, NWZ, etc.) whose indices are significant,
  being used in Rlysyms to identify the "type" (nomenclature). The associated map
@@ -87,6 +94,9 @@ Sexpr intern_rlysym (long n, const char* str) {
     if (S == NIL) {
         Rlysym * rsp = new Rlysym(n, get_relay_type_index(str), NULL);
         RelayHashTable[relay_hash(rsp->type, n)].reset(rsp);
+#if NX_HEADLESS
+        RelaySymInsertionOrder.push_back(rsp);
+#endif
         return Sexpr(rsp);
     }
     return S;
@@ -107,6 +117,9 @@ std::string Rlysym::PRep ()  {
 
 
 void ClearRelayMaps() {
+#if NX_HEADLESS
+    RelaySymInsertionOrder.clear();
+#endif
     RelayHashTable.clear();
     RelayTypeHashMap.clear();
     RelayTypeTable.clear();
@@ -126,6 +139,15 @@ void LispCleanOutRelays() {
 }
 
 void map_relay_syms (RlySymFunarg function, void* environment /*dft nullptr*/) {
+#if NX_HEADLESS
+    /* iterate a copy: callbacks may intern new relay syms */
+    std::vector<Rlysym*> order(RelaySymInsertionOrder);
+    for (Rlysym* rsp : order) {
+        assert (rsp);
+        function(rsp, environment);
+    }
+    return;
+#endif
     for (auto& it: RelayHashTable) {
         Rlysym * rsp = it.second.get();
         assert (rsp);
@@ -146,6 +168,11 @@ std::vector<Relay*> get_relay_array_for_object_number (int nomenclature) {
 
 void map_relay_syms_for_validate (void (*fcn)(const Rlysym*, int)) {
     int i = 0;
+#if NX_HEADLESS
+    for (Rlysym* rsp : RelaySymInsertionOrder)
+        fcn(rsp, i++);
+    return;
+#endif
     for (auto& it: RelayHashTable)
         fcn(it.second.get(), i++);
 }
